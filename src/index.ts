@@ -1,0 +1,55 @@
+export { createDhal } from "./engine.js";
+export { loadDhalConfig, defaultConfig } from "./config.js";
+export { getDhalConfigJsonSchema } from "./config-schema.js";
+export { MemoryRateLimitStore } from "./stores/memory-rate-limit-store.js";
+export { MemorySignalStore } from "./stores/memory-signal-store.js";
+export { RedisRateLimitStore } from "./stores/redis-rate-limit-store.js";
+export { RedisSignalStore } from "./stores/redis-signal-store.js";
+export { AbuseIpDbProvider, createAbuseIpDbProviderFromConfig } from "./reputation/abuseipdb.js";
+export { IpReputationCache } from "./reputation/cache.js";
+export { DhalEventBus } from "./telemetry/events.js";
+export { CompositeDhalTelemetry } from "./telemetry/composite.js";
+export { OpenTelemetryDhalTelemetry } from "./telemetry/otel.js";
+export { WebhookDhalTelemetry } from "./telemetry/webhook.js";
+export { evaluateDhalCiPolicy } from "./ci.js";
+export { runDhalAutosetup } from "./autosetup/index.js";
+export { applyPolicyToDecision, resolveSeverity, shouldEmitSecurityEvent, severityAtLeast } from "./policy.js";
+export { buildCredentialKey, isCredentialRoute } from "./rules/credential-stuffing-rule.js";
+export type {
+  DhalAction,
+  DhalApiPositiveSecurityConfig,
+  DhalAutosetupOptions,
+  DhalAutosetupProvider,
+  DhalBotRuleConfig,
+  DhalConfig,
+  DhalCredentialStuffingKey,
+  DhalCredentialStuffingRuleConfig,
+  DhalDecision,
+  DhalHeaders,
+  DhalHeaderAnomalyConfig,
+  DhalHoneypotRuleConfig,
+  DhalIdentityKey,
+  DhalMode,
+  DhalOptions,
+  DhalRateLimitConfig,
+  DhalRequest,
+  DhalResponseOutcome,
+  DhalRouteProfile,
+  DhalRuleConfig,
+  DhalRulePackName,
+  DhalContentTypeConfig,
+  DhalPolicyConfig,
+  DhalRuleSuppression,
+  DhalSamplingConfig,
+  DhalSeverity,
+  DhalAuditExplanation,
+  DhalSecurityEvent,
+  DhalSecuritySignal,
+  DhalSignalStore,
+  DhalTelemetry,
+  IpReputationProvider,
+  IpReputationResult,
+  RateLimitStore
+} from "./types.js";
+export type { RedisLikeClient } from "./stores/redis-rate-limit-store.js";
+export type { RedisSignalLikeClient } from "./stores/redis-signal-store.js";

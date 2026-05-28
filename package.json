@@ -1,0 +1,187 @@
+{
+  "name": "@rokadhq/dhal",
+  "version": "0.8.2",
+  "description": "App-native WAF, AI-assisted autosetup, rule packs, policy controls, bot defense, credential-stuffing protection, and request security middleware for Node.js applications.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "bin": {
+    "dhal": "dist/cli.js"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./express": {
+      "types": "./dist/adapters/express.d.ts",
+      "import": "./dist/adapters/express.js",
+      "require": "./dist/adapters/express.cjs"
+    },
+    "./fastify": {
+      "types": "./dist/adapters/fastify.d.ts",
+      "import": "./dist/adapters/fastify.js",
+      "require": "./dist/adapters/fastify.cjs"
+    },
+    "./node-http": {
+      "types": "./dist/adapters/node-http.d.ts",
+      "import": "./dist/adapters/node-http.js",
+      "require": "./dist/adapters/node-http.cjs"
+    },
+    "./stores/redis": {
+      "types": "./dist/stores/redis-rate-limit-store.d.ts",
+      "import": "./dist/stores/redis-rate-limit-store.js",
+      "require": "./dist/stores/redis-rate-limit-store.cjs"
+    },
+    "./reputation/abuseipdb": {
+      "types": "./dist/reputation/abuseipdb.d.ts",
+      "import": "./dist/reputation/abuseipdb.js",
+      "require": "./dist/reputation/abuseipdb.cjs"
+    },
+    "./telemetry/otel": {
+      "types": "./dist/telemetry/otel.d.ts",
+      "import": "./dist/telemetry/otel.js",
+      "require": "./dist/telemetry/otel.cjs"
+    },
+    "./telemetry/webhook": {
+      "types": "./dist/telemetry/webhook.d.ts",
+      "import": "./dist/telemetry/webhook.js",
+      "require": "./dist/telemetry/webhook.cjs"
+    },
+    "./stores/memory-signal": {
+      "types": "./dist/stores/memory-signal-store.d.ts",
+      "import": "./dist/stores/memory-signal-store.js",
+      "require": "./dist/stores/memory-signal-store.cjs"
+    },
+    "./stores/redis-signal": {
+      "types": "./dist/stores/redis-signal-store.d.ts",
+      "import": "./dist/stores/redis-signal-store.js",
+      "require": "./dist/stores/redis-signal-store.cjs"
+    },
+    "./config-schema": {
+      "types": "./dist/config-schema.d.ts",
+      "import": "./dist/config-schema.js",
+      "require": "./dist/config-schema.cjs"
+    },
+    "./autosetup": {
+      "types": "./dist/autosetup/index.d.ts",
+      "import": "./dist/autosetup/index.js",
+      "require": "./dist/autosetup/index.cjs"
+    },
+    "./package.json": "./package.json",
+    "./dhal.schema.json": "./dhal.schema.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "SECURITY_NOTES.md",
+    "dhal.schema.json",
+    "RELEASE_INTEGRITY.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "PUBLISHING.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts src/cli.ts src/config-schema.ts src/adapters/express.ts src/adapters/fastify.ts src/adapters/node-http.ts src/stores/redis-rate-limit-store.ts src/stores/redis-signal-store.ts src/stores/memory-signal-store.ts src/reputation/abuseipdb.ts src/telemetry/otel.ts src/telemetry/webhook.ts src/autosetup/index.ts --format esm,cjs --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "dev:express": "tsx examples/express.ts",
+    "dev:fastify": "tsx examples/fastify.ts",
+    "simulate": "tsx src/cli.ts simulate fixtures.simulation.json",
+    "test": "vitest run",
+    "benchmark": "tsx bench/bench.ts",
+    "schema": "tsx src/cli.ts schema dhal.schema.json",
+    "ci:config": "tsx src/cli.ts ci",
+    "verify:publish": "npm run typecheck && npm test && npm run build && npm run schema && npm run ci:config && npm run simulate && npm audit --omit=dev",
+    "pack:dry": "npm pack --dry-run",
+    "pack:release": "npm run verify:publish && npm pack",
+    "prepublishOnly": "npm run verify:publish",
+    "doctor": "node -e \"console.log(`node ${process.version}`); console.log(`npm ${process.env.npm_config_user_agent || 'unknown'}`)\"",
+    "publish:local": "npm publish --tag next --access public --provenance=false",
+    "publish:ci": "npm publish --tag next --access public --provenance"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": ">=1.8.0",
+    "express": ">=4.18.0 || >=5.0.0",
+    "fastify": ">=4.0.0 || >=5.0.0",
+    "ioredis": ">=5.0.0",
+    "ai": ">=5.0.0",
+    "@ai-sdk/openai": ">=2.0.0",
+    "@ai-sdk/anthropic": ">=2.0.0",
+    "@ai-sdk/google": ">=2.0.0",
+    "@ai-sdk/mistral": ">=2.0.0",
+    "@ai-sdk/xai": ">=2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    },
+    "express": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    },
+    "ioredis": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    },
+    "@ai-sdk/openai": {
+      "optional": true
+    },
+    "@ai-sdk/anthropic": {
+      "optional": true
+    },
+    "@ai-sdk/google": {
+      "optional": true
+    },
+    "@ai-sdk/mistral": {
+      "optional": true
+    },
+    "@ai-sdk/xai": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.30",
+    "express": "^4.18.3",
+    "fastify": "^5.8.5",
+    "ioredis": "^5.3.2",
+    "tsup": "^8.0.2",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.7"
+  },
+  "author": "Aryabh Thakur",
+  "keywords": [
+    "waf",
+    "web-application-firewall",
+    "nodejs",
+    "security",
+    "middleware",
+    "express",
+    "fastify",
+    "rate-limit",
+    "bot-defense",
+    "credential-stuffing",
+    "opentelemetry",
+    "ai-sdk",
+    "application-security"
+  ],
+  "sideEffects": false,
+  "packageManager": "npm@10.9.2",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
+}

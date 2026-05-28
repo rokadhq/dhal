@@ -1,0 +1,360 @@
+#!/usr/bin/env node
+import {
+  evaluateDhalCiPolicy
+} from "./chunk-RMYOAUND.js";
+import {
+  getDhalConfigJsonSchema
+} from "./chunk-TBSX6UF4.js";
+import {
+  createDhal,
+  extractIdentity
+} from "./chunk-UODWKQLZ.js";
+import "./chunk-IRZXZAQ4.js";
+import "./chunk-JCY2QFLP.js";
+import "./chunk-BGMTMZGL.js";
+import {
+  runDhalAutosetup
+} from "./chunk-RXYJ2NVO.js";
+import {
+  defaultConfig,
+  loadDhalConfig
+} from "./chunk-JUWTNUCA.js";
+import "./chunk-X7PS5EQX.js";
+
+// src/cli.ts
+import { existsSync, readFileSync, writeFileSync } from "fs";
+import { resolve } from "path";
+var [, , command, ...args] = process.argv;
+async function main() {
+  const parsed = parseArgs(args);
+  switch (command) {
+    case "init":
+      initConfig(parsed.positional[0]);
+      return;
+    case "test-config":
+      testConfig(parsed.configPath ?? parsed.positional[0]);
+      return;
+    case "simulate":
+      await simulate(parsed.positional[0], parsed.configPath, Boolean(parsed.json));
+      return;
+    case "replay":
+      await replay(parsed.positional[0], parsed.configPath, Boolean(parsed.json), Boolean(parsed.failOnBlock));
+      return;
+    case "autosetup":
+      await autosetup(parsed);
+      return;
+    case "explain-config":
+      explainConfig(parsed.configPath ?? parsed.positional[0]);
+      return;
+    case "schema":
+    case "export-schema":
+      exportSchema(parsed.positional[0]);
+      return;
+    case "migrate":
+      migrateConfig(parsed.positional[0], parsed.positional[1]);
+      return;
+    case "ci":
+      runCi(parsed.configPath ?? parsed.positional[0], Boolean(parsed.json));
+      return;
+    case "help":
+    case "--help":
+    case "-h":
+    case void 0:
+      printHelp();
+      return;
+    default:
+      console.error(`Unknown command: ${command}`);
+      printHelp();
+      process.exitCode = 1;
+  }
+}
+function parseArgs(values) {
+  const parsed = { positional: [] };
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index];
+    if (value === "--config") {
+      parsed.configPath = values[index + 1];
+      index += 1;
+    } else if (value === "--json") {
+      parsed.json = true;
+    } else if (value === "--provider") {
+      parsed.provider = values[index + 1];
+      index += 1;
+    } else if (value === "--model") {
+      parsed.model = values[index + 1];
+      index += 1;
+    } else if (value === "--write") {
+      parsed.write = true;
+    } else if (value === "--no-ai") {
+      parsed.noAi = true;
+    } else if (value === "--output") {
+      parsed.outputPath = values[index + 1];
+      index += 1;
+    } else if (value === "--max-files") {
+      parsed.maxFiles = Number(values[index + 1]);
+      index += 1;
+    } else if (value === "--max-bytes-per-file") {
+      parsed.maxBytesPerFile = Number(values[index + 1]);
+      index += 1;
+    } else if (value === "--provider-module") {
+      parsed.providerModule = values[index + 1];
+      index += 1;
+    } else if (value === "--provider-export") {
+      parsed.providerExport = values[index + 1];
+      index += 1;
+    } else if (value === "--fail-on-block") {
+      parsed.failOnBlock = true;
+    } else if (value !== void 0) {
+      parsed.positional.push(value);
+    }
+  }
+  return parsed;
+}
+function initConfig(path = "dhal.json") {
+  const resolved = resolve(process.cwd(), path);
+  if (existsSync(resolved)) {
+    console.error(`Refusing to overwrite existing config: ${resolved}`);
+    process.exitCode = 1;
+    return;
+  }
+  writeFileSync(resolved, `${JSON.stringify(defaultConfig, null, 2)}
+`);
+  console.log(`Created ${resolved}`);
+}
+function exportSchema(path) {
+  const schema = JSON.stringify(getDhalConfigJsonSchema(), null, 2);
+  if (path) {
+    const resolved = resolve(process.cwd(), path);
+    writeFileSync(resolved, `${schema}
+`);
+    console.log(`Created ${resolved}`);
+    return;
+  }
+  console.log(schema);
+}
+function migrateConfig(inputPath = "dhal.json", outputPath) {
+  const config = loadDhalConfig(inputPath);
+  const serialized = `${JSON.stringify(config, null, 2)}
+`;
+  if (outputPath) {
+    const resolved = resolve(process.cwd(), outputPath);
+    writeFileSync(resolved, serialized);
+    console.log(`Created migrated config ${resolved}`);
+    return;
+  }
+  console.log(serialized);
+}
+function runCi(path = "dhal.json", json = false) {
+  const config = loadDhalConfig(path);
+  const result = evaluateDhalCiPolicy(config);
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+  } else if (result.findings.length === 0) {
+    console.log("Dhal CI: ok");
+  } else {
+    console.log(`Dhal CI: ${result.ok ? "passed with warnings" : "failed"}`);
+    for (const finding of result.findings) {
+      console.log(`${finding.level.toUpperCase()} ${finding.code}: ${finding.message}`);
+    }
+  }
+  if (!result.ok) {
+    process.exitCode = 1;
+  }
+}
+async function autosetup(parsed) {
+  const projectRoot = parsed.positional[0] ?? ".";
+  const provider = parsed.provider ?? "gateway";
+  const model = parsed.model ?? "openai/gpt-4.1-mini";
+  const result = await runDhalAutosetup({
+    projectRoot,
+    configPath: parsed.configPath ?? "dhal.json",
+    provider,
+    model,
+    write: Boolean(parsed.write),
+    useAi: !parsed.noAi,
+    maxFiles: parsed.maxFiles ?? 80,
+    maxBytesPerFile: parsed.maxBytesPerFile ?? 12e3,
+    providerModule: parsed.providerModule,
+    providerExport: parsed.providerExport,
+    outputPath: parsed.outputPath
+  });
+  if (parsed.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  console.log(`Dhal autosetup: ${result.usedAi ? "AI-assisted" : "heuristic"} proposal using ${result.provider}/${result.model}`);
+  console.log(`Detected frameworks: ${result.scan.frameworkHints.join(", ") || "unknown"}`);
+  console.log(`Detected routes: ${result.scan.routes.length}`);
+  for (const reason of result.proposal.rationale) console.log(`- ${reason}`);
+  for (const warning of result.proposal.warnings) console.log(`WARN ${warning}`);
+  if (result.wroteConfig && result.outputPath) console.log(`Wrote ${result.outputPath}`);
+  else console.log("No files written. Re-run with --write to apply the proposal.");
+}
+function testConfig(path = "dhal.json") {
+  const config = loadDhalConfig(path);
+  console.log(JSON.stringify({
+    ok: true,
+    mode: config.mode,
+    rateLimitStore: config.rateLimit.store,
+    routeProfiles: Object.keys(config.routes).length,
+    identityHeaders: config.identity.headers,
+    enabledBehaviorRules: {
+      bot: config.rules.bot.enabled,
+      honeypot: config.rules.honeypot.enabled,
+      credentialStuffing: config.rules.credentialStuffing.enabled
+    },
+    webhooks: {
+      enabled: config.observability.webhooks.enabled,
+      targets: config.observability.webhooks.urls.length,
+      signing: config.observability.webhooks.signing.enabled
+    },
+    policy: {
+      suppressions: config.policy.suppressions.length,
+      sampling: config.policy.sampling.enabled,
+      audit: config.policy.audit.enabled
+    }
+  }, null, 2));
+}
+function explainConfig(path = "dhal.json") {
+  const config = loadDhalConfig(path);
+  const routeProfiles = Object.entries(config.routes).map(([pattern, profile]) => ({
+    pattern,
+    mode: profile.mode ?? config.mode,
+    tags: profile.tags ?? [],
+    rateLimit: profile.rateLimit ?? null,
+    rules: profile.rules ?? null,
+    ipReputation: profile.ipReputation ?? null
+  }));
+  console.log(JSON.stringify({
+    mode: config.mode,
+    trustProxy: config.trustProxy,
+    globalRateLimit: config.rateLimit,
+    globalRules: config.rules,
+    policy: config.policy,
+    observability: config.observability,
+    routeProfiles
+  }, null, 2));
+}
+async function replay(path, configPath = "dhal.json", json = false, failOnBlock = false) {
+  if (!path) {
+    console.error("Usage: dhal replay ./false-positive-fixtures.json [--config dhal.json] [--json] [--fail-on-block]");
+    process.exitCode = 1;
+    return;
+  }
+  const raw = readFileSync(resolve(process.cwd(), path), "utf8");
+  const fixtures = JSON.parse(raw);
+  if (!Array.isArray(fixtures)) throw new Error("Replay file must be a JSON array");
+  const engine = createDhal({ configPath, logger: silentLogger });
+  const rows = [];
+  for (const [index, fixture] of fixtures.entries()) {
+    const request = "request" in fixture ? fixture.request : fixture;
+    const expected = "request" in fixture ? fixture.expected ?? "allow" : fixture.expected ?? fixture.expectedAction ?? "allow";
+    const decision = await engine.inspect(request);
+    const actual = decision.wouldBlock ? "would-block" : decision.action;
+    const passed = failOnBlock ? actual === "allow" : actual === expected;
+    rows.push({ index: index + 1, name: fixture.name ?? `${request.method} ${request.path}`, expected, actual, passed, ruleId: decision.ruleId });
+  }
+  const failed = rows.filter((row) => !row.passed);
+  if (json) {
+    console.log(JSON.stringify({ ok: failed.length === 0, rows }, null, 2));
+  } else {
+    console.log(`Dhal replay: ${rows.length - failed.length}/${rows.length} passed`);
+    for (const row of rows) {
+      console.log(`${row.passed ? "PASS" : "FAIL"} ${String(row.index).padStart(2, "0")} ${row.name} expected=${row.expected} actual=${row.actual} rule=${row.ruleId ?? "none"}`);
+    }
+  }
+  if (failed.length > 0) process.exitCode = 1;
+}
+async function simulate(path, configPath = "dhal.json", json = false) {
+  if (!path) {
+    console.error("Usage: dhal simulate ./requests.json [--config dhal.json] [--json]");
+    process.exitCode = 1;
+    return;
+  }
+  const resolved = resolve(process.cwd(), path);
+  const raw = readFileSync(resolved, "utf8");
+  const requests = JSON.parse(raw);
+  if (!Array.isArray(requests)) {
+    throw new Error("Simulation file must be a JSON array of DhalRequest objects");
+  }
+  const engine = createDhal({ configPath, logger: silentLogger });
+  const capturedSignals = [];
+  engine.events.onSignal((signal) => capturedSignals.push(signal));
+  const rows = [];
+  for (const [index, request] of requests.entries()) {
+    const identity = extractIdentity(request.headers, engine.config, {
+      userId: request.userId,
+      tenantId: request.tenantId,
+      apiKeyId: request.apiKeyId
+    });
+    const normalizedRequest = { ...request, ...identity };
+    const decision = await engine.inspect(normalizedRequest);
+    if (normalizedRequest.responseStatus !== void 0) {
+      await engine.recordOutcome(normalizedRequest, { statusCode: normalizedRequest.responseStatus });
+    }
+    rows.push({
+      index: index + 1,
+      request: `${normalizedRequest.method} ${normalizedRequest.path}`,
+      ip: normalizedRequest.ip,
+      identity,
+      responseStatus: normalizedRequest.responseStatus,
+      decision
+    });
+  }
+  const summary = rows.reduce((acc, row) => {
+    if (row.decision.action === "block") acc.blocked += 1;
+    else if (row.decision.wouldBlock) acc.wouldBlock += 1;
+    else acc.allowed += 1;
+    return acc;
+  }, { allowed: 0, blocked: 0, wouldBlock: 0, signals: capturedSignals.length });
+  if (json) {
+    console.log(JSON.stringify({ summary, rows, signals: capturedSignals }, null, 2));
+    return;
+  }
+  console.log(`Dhal simulation: ${summary.allowed} allowed, ${summary.blocked} blocked, ${summary.wouldBlock} would-block, ${summary.signals} signals`);
+  for (const row of rows) {
+    const outcome = row.decision.wouldBlock ? "would-block" : row.decision.action;
+    const response = row.responseStatus === void 0 ? "" : ` response=${row.responseStatus}`;
+    console.log(
+      `${String(row.index).padStart(2, "0")}. ${outcome.padEnd(11)} ${row.request.padEnd(28)} ip=${row.ip.padEnd(15)} rule=${row.decision.ruleId ?? "none"} route=${String(row.decision.meta?.routePattern ?? "default")}${response}`
+    );
+  }
+}
+var silentLogger = {
+  log() {
+  },
+  warn() {
+  },
+  error() {
+  }
+};
+function printHelp() {
+  console.log(`Dhal CLI
+
+Usage:
+  dhal init [path]
+  dhal test-config [--config dhal.json]
+  dhal explain-config [--config dhal.json]
+  dhal schema [outputPath]
+  dhal migrate [inputPath] [outputPath]
+  dhal ci [--config dhal.json] [--json]
+  dhal autosetup [projectRoot] [--provider gateway|openai|anthropic|google|mistral|xai|custom] [--model model-id] [--write] [--json]
+  dhal replay ./false-positive-fixtures.json [--config dhal.json] [--json] [--fail-on-block]
+  dhal simulate ./requests.json [--config dhal.json] [--json]
+
+Commands:
+  init            Create a starter dhal.json
+  test-config     Load and validate dhal.json
+  explain-config  Print global, route-specific, and behavior controls
+  schema          Print JSON schema, or write it to outputPath
+  migrate         Print or write a config migrated to the current schema
+  ci              Validate config against CI safety policy
+  autosetup       Scan a Node project and propose/apply route-aware Dhal rules; can use the AI SDK package
+  replay          Replay expected-allow/block fixtures for false-positive regression testing
+  simulate        Run Dhal decisions against request fixtures, including optional responseStatus signals
+`);
+}
+void main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exitCode = 1;
+});

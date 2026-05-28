@@ -1,0 +1,190 @@
+[
+  {
+    "method": "GET",
+    "url": "/?q=%3Cscript%3Ealert(1)%3C/script%3E",
+    "path": "/",
+    "headers": {
+      "user-agent": "Mozilla/5.0",
+      "accept": "text/html",
+      "host": "example.test"
+    },
+    "ip": "203.0.113.10"
+  },
+  {
+    "method": "GET",
+    "url": "/__dhal_honeypot",
+    "path": "/__dhal_honeypot",
+    "headers": {
+      "user-agent": "Mozilla/5.0",
+      "accept": "text/html",
+      "host": "example.test"
+    },
+    "ip": "203.0.113.15"
+  },
+  {
+    "method": "GET",
+    "url": "/?dhal_hp=1",
+    "path": "/",
+    "headers": {
+      "user-agent": "Mozilla/5.0",
+      "accept": "text/html",
+      "host": "example.test"
+    },
+    "ip": "203.0.113.16"
+  },
+  {
+    "method": "GET",
+    "url": "/pricing",
+    "path": "/pricing",
+    "headers": {
+      "user-agent": "HeadlessChrome",
+      "x-headless": "1",
+      "host": "example.test"
+    },
+    "ip": "203.0.113.17"
+  },
+  {
+    "method": "POST",
+    "url": "/api/login",
+    "path": "/api/login",
+    "route": "/api/login",
+    "headers": {
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json",
+      "host": "example.test",
+      "content-type": "application/json"
+    },
+    "ip": "203.0.113.20",
+    "body": {
+      "email": "victim@example.com",
+      "password": "wrong-1"
+    },
+    "responseStatus": 401
+  },
+  {
+    "method": "POST",
+    "url": "/api/login",
+    "path": "/api/login",
+    "route": "/api/login",
+    "headers": {
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json",
+      "host": "example.test",
+      "content-type": "application/json"
+    },
+    "ip": "203.0.113.20",
+    "body": {
+      "email": "victim@example.com",
+      "password": "wrong-2"
+    },
+    "responseStatus": 401
+  },
+  {
+    "method": "POST",
+    "url": "/api/login",
+    "path": "/api/login",
+    "route": "/api/login",
+    "headers": {
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json",
+      "host": "example.test",
+      "content-type": "application/json"
+    },
+    "ip": "203.0.113.20",
+    "body": {
+      "email": "victim@example.com",
+      "password": "wrong-3"
+    },
+    "responseStatus": 401
+  },
+  {
+    "method": "POST",
+    "url": "/api/login",
+    "path": "/api/login",
+    "route": "/api/login",
+    "headers": {
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json",
+      "host": "example.test",
+      "content-type": "application/json"
+    },
+    "ip": "203.0.113.20",
+    "body": {
+      "email": "victim@example.com",
+      "password": "wrong-4"
+    },
+    "responseStatus": 401
+  },
+  {
+    "method": "POST",
+    "url": "/api/login",
+    "path": "/api/login",
+    "route": "/api/login",
+    "headers": {
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json",
+      "host": "example.test",
+      "content-type": "application/json"
+    },
+    "ip": "203.0.113.20",
+    "body": {
+      "email": "victim@example.com",
+      "password": "wrong-5"
+    }
+  },
+  {
+    "method": "POST",
+    "url": "/api/login",
+    "path": "/api/login",
+    "route": "/api/login",
+    "headers": {
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json",
+      "host": "example.test",
+      "content-type": "application/json"
+    },
+    "ip": "203.0.113.11",
+    "body": {
+      "email": "a@example.com",
+      "password": "' OR '1'='1"
+    }
+  },
+  {
+    "method": "GET",
+    "url": "/api/private/accounts",
+    "path": "/api/private/accounts",
+    "route": "/api/private/*",
+    "headers": {
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json",
+      "x-tenant-id": "tenant_a",
+      "x-api-key-id": "key_live_1",
+      "host": "example.test"
+    },
+    "ip": "203.0.113.12"
+  },
+  {
+    "method": "POST",
+    "url": "/api/upload?name=../../etc/passwd",
+    "path": "/api/upload",
+    "route": "/api/upload",
+    "headers": {
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json",
+      "x-user-id": "user_123",
+      "content-length": "6000000",
+      "host": "example.test"
+    },
+    "ip": "203.0.113.13"
+  },
+  {
+    "method": "GET",
+    "url": "/",
+    "path": "/",
+    "headers": {
+      "user-agent": "sqlmap",
+      "host": "example.test"
+    },
+    "ip": "203.0.113.14"
+  }
+]

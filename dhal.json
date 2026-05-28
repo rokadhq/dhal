@@ -1,0 +1,260 @@
+{
+  "mode": "monitor",
+  "trustProxy": false,
+  "identity": {
+    "headers": {
+      "userId": [
+        "x-dhal-user-id",
+        "x-user-id"
+      ],
+      "tenantId": [
+        "x-dhal-tenant-id",
+        "x-tenant-id"
+      ],
+      "apiKeyId": [
+        "x-dhal-api-key-id",
+        "x-api-key-id"
+      ]
+    }
+  },
+  "ip": {
+    "allow": [],
+    "block": [],
+    "reputation": {
+      "enabled": false,
+      "provider": "abuseipdb",
+      "apiKeyEnv": "ABUSEIPDB_API_KEY",
+      "minScore": 75,
+      "cacheTtlSeconds": 86400,
+      "maxAgeInDays": 30,
+      "mode": "async",
+      "timeoutMs": 750
+    }
+  },
+  "rateLimit": {
+    "enabled": true,
+    "store": "memory",
+    "keyBy": [
+      "ip",
+      "route"
+    ],
+    "default": {
+      "windowSeconds": 60,
+      "max": 120
+    },
+    "routes": {}
+  },
+  "rules": {
+    "packs": [
+      "generic-web",
+      "api"
+    ],
+    "sqli": true,
+    "xss": true,
+    "pathTraversal": true,
+    "badUserAgents": true,
+    "largePayload": {
+      "enabled": true,
+      "maxBytes": 1048576
+    },
+    "api": {
+      "enabled": false,
+      "requireJsonContentType": true,
+      "allowedContentTypes": [
+        "application/json",
+        "application/problem+json"
+      ],
+      "methodsWithBody": [
+        "POST",
+        "PUT",
+        "PATCH"
+      ],
+      "maxJsonDepth": 20,
+      "maxJsonKeys": 500
+    },
+    "headers": {
+      "enabled": true,
+      "requireHostHeader": true,
+      "maxHeaderCount": 96,
+      "maxHeaderBytes": 16384,
+      "suspiciousHeaders": [
+        "x-forwarded-host",
+        "x-original-url",
+        "x-rewrite-url"
+      ],
+      "blockConflictingForwardingHeaders": false
+    },
+    "contentType": {
+      "enabled": true,
+      "blockMissingOnBodyMethods": false,
+      "blockJsonMismatch": true,
+      "allowedJsonMimeTypes": [
+        "application/json",
+        "application/problem+json",
+        "application/ld+json"
+      ]
+    },
+    "bot": {
+      "enabled": true,
+      "scoreThreshold": 70,
+      "blockEmptyUserAgent": false,
+      "suspiciousUserAgents": [
+        "headlesschrome",
+        "phantomjs",
+        "selenium",
+        "puppeteer",
+        "playwright",
+        "python-requests",
+        "aiohttp",
+        "httpclient",
+        "libwww-perl"
+      ],
+      "allowUserAgents": [],
+      "falsePositiveControls": {
+        "minSignals": 2,
+        "skipStaticAssets": true,
+        "ignorePaths": [
+          "/healthz",
+          "/health",
+          "/readyz",
+          "/favicon.ico"
+        ],
+        "ignorePrivateIps": false
+      },
+      "signals": {
+        "missingAcceptHeaderScore": 15,
+        "emptyUserAgentScore": 30,
+        "suspiciousUserAgentScore": 45,
+        "headlessHeaderScore": 35,
+        "automationHeaderScore": 35,
+        "browserHeaderMismatchScore": 20
+      }
+    },
+    "honeypot": {
+      "enabled": true,
+      "headers": [
+        "x-dhal-honeypot",
+        "x-honeypot"
+      ],
+      "queryParams": [
+        "dhal_hp",
+        "_dhal_canary"
+      ],
+      "paths": [
+        "/__dhal_honeypot",
+        "/.env",
+        "/wp-login.php"
+      ]
+    },
+    "credentialStuffing": {
+      "enabled": true,
+      "loginPathPatterns": [
+        "/api/login",
+        "/login",
+        "/auth/login"
+      ],
+      "failureStatusCodes": [
+        400,
+        401,
+        403
+      ],
+      "windowSeconds": 300,
+      "maxFailures": 8,
+      "keyBy": [
+        "ip",
+        "route"
+      ]
+    }
+  },
+  "routes": {},
+  "policy": {
+    "severity": {
+      "default": "low",
+      "categories": {
+        "honeypot": "critical",
+        "credential_stuffing": "high",
+        "ip": "high",
+        "signature": "high",
+        "rate_limit": "medium",
+        "bot": "medium",
+        "request": "medium",
+        "header": "medium",
+        "api": "medium",
+        "content_type": "medium"
+      },
+      "rules": {
+        "honeypot.triggered": "critical",
+        "credential_stuffing.threshold_exceeded": "high",
+        "ip.reputation": "high",
+        "signature.path_traversal": "critical",
+        "signature.sqli": "high",
+        "signature.xss": "high",
+        "request.large_payload": "medium",
+        "rate_limit.exceeded": "medium",
+        "bot.suspicious_request": "medium",
+        "header.anomaly": "medium",
+        "api.positive_security_violation": "medium",
+        "content_type.mismatch": "medium"
+      }
+    },
+    "suppressions": [],
+    "sampling": {
+      "enabled": false,
+      "rate": 1,
+      "includeBlocked": true,
+      "includeWouldBlock": true,
+      "rules": {},
+      "routes": {}
+    },
+    "audit": {
+      "enabled": true,
+      "includeSuppressed": true
+    },
+    "ci": {
+      "failOnModes": [
+        "off"
+      ],
+      "requireWebhookSigning": false,
+      "requireNonMonitorRouteForRules": [],
+      "disallowExpiredSuppressions": true
+    }
+  },
+  "observability": {
+    "correlation": {
+      "headers": [
+        "x-request-id",
+        "x-correlation-id",
+        "traceparent"
+      ]
+    },
+    "logs": {
+      "enabled": true,
+      "format": "json"
+    },
+    "events": {
+      "enabled": true
+    },
+    "otel": {
+      "enabled": false,
+      "serviceName": "dhal-protected-app",
+      "emitAllowedRequests": false
+    },
+    "webhooks": {
+      "enabled": false,
+      "urls": [],
+      "timeoutMs": 750,
+      "emitAllowedRequests": false,
+      "signing": {
+        "enabled": false,
+        "secretEnv": "DHAL_WEBHOOK_SECRET",
+        "signatureHeader": "x-dhal-signature",
+        "timestampHeader": "x-dhal-timestamp",
+        "idHeader": "x-dhal-event-id"
+      }
+    }
+  },
+  "response": {
+    "blockStatusCode": 403,
+    "message": "Request blocked by Dhal"
+  }
+}
