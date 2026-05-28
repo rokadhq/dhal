@@ -1,0 +1,84 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+.yarn-cache/
+.bun/
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+bun-debug.log*
+
+# Runtime logs
+logs/
+*.log
+
+# Build output
+dist/
+build/
+lib/
+coverage/
+.nyc_output/
+
+# Test / benchmark output
+.vitest/
+bench-results/
+benchmark-results/
+*.bench.json
+
+# TypeScript
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# npm / package artifacts
+*.tgz
+*.tar.gz
+package-lock.json.bak
+
+# Keep package-lock only if you intentionally want reproducible app-style installs.
+# For libraries, many teams omit it. Uncomment if you do not want to commit it:
+# package-lock.json
+
+# Local npm auth/config
+.npmrc
+!.npmrc.example
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor / IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+temp/
+.cache/
+*.tmp
+
+# Mintlify / docs local output
+.mintlify/
+mintlify/
+docs/.mintlify/
+
+# Next.js / landing page output, if in same repo
+.next/
+out/
+.vercel/
+.turbo/
+
+# Misc
+*.local
