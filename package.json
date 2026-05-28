@@ -1,6 +1,6 @@
 {
   "name": "@rokadhq/dhal",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "App-native WAF, AI-assisted autosetup, rule packs, policy controls, bot defense, credential-stuffing protection, and request security middleware for Node.js applications.",
   "type": "module",
   "license": "MIT",
