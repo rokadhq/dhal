@@ -1,9 +1,9 @@
-name: Publish Dhal to GitHub Packages
+name: Publish to GitHub Packages
 
 on:
-  workflow_dispatch:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,18 +11,20 @@ permissions:
 
 jobs:
   publish-github-package:
+    name: Publish @rokadhq/dhal to GitHub Packages
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node for GitHub Packages
+      - name: Setup Node.js for GitHub Packages
         uses: actions/setup-node@v4
         with:
-          node-version: 24
-          registry-url: https://npm.pkg.github.com
-          scope: '@rokadhq'
-          cache: npm
+          node-version: "24"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@rokadhq"
+          cache: "npm"
 
       - name: Install dependencies
         run: |
@@ -35,10 +37,26 @@ jobs:
       - name: Verify package
         run: npm run verify:publish
 
+      - name: Resolve npm dist-tag
+        id: tag
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+
+          if [[ "$VERSION" == *"-"* ]]; then
+            echo "tag=alpha" >> "$GITHUB_OUTPUT"
+          elif [[ "$VERSION" == 0.* ]]; then
+            echo "tag=next" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Point publishConfig to GitHub Packages
         run: npm pkg set publishConfig.registry=https://npm.pkg.github.com
 
       - name: Publish to GitHub Packages
-        run: npm publish --access public --provenance=false
+        run: npm publish --access public --tag ${{ steps.tag.outputs.tag }} --provenance=false
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
