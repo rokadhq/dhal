@@ -44,6 +44,16 @@ var import_node_path = require("path");
 var defaultConfig = {
   mode: "monitor",
   trustProxy: false,
+  runtime: {
+    onInternalError: "allow",
+    internalErrorStatusCode: 500,
+    maxInspectionMs: 25,
+    bypass: {
+      enabled: true,
+      paths: ["/health", "/healthz", "/ready", "/readyz", "/live", "/livez"],
+      methods: ["OPTIONS"]
+    }
+  },
   identity: {
     headers: {
       userId: ["x-dhal-user-id", "x-user-id"],
@@ -170,6 +180,8 @@ var defaultConfig = {
         content_type: "medium"
       },
       rules: {
+        "ip.allow": "info",
+        "ip.block": "high",
         "honeypot.triggered": "critical",
         "credential_stuffing.threshold_exceeded": "high",
         "ip.reputation": "high",
@@ -205,6 +217,12 @@ var defaultConfig = {
     }
   },
   observability: {
+    redaction: {
+      enabled: true,
+      ip: "mask",
+      identity: "hash",
+      userAgent: "full"
+    },
     correlation: {
       headers: ["x-request-id", "x-correlation-id", "traceparent"]
     },
@@ -283,11 +301,13 @@ function validateConfig(config) {
     validateRoutePattern(pattern, `rateLimit.routes.${pattern}`);
     validateRateLimit(`rateLimit.routes.${pattern}`, limit.max, limit.windowSeconds);
   }
+  validateRuntime(config);
   validateRuleConfig("rules", config.rules);
   validateIdentityHeaders(config);
   validateReputation(config);
   validateResponse("response", config.response.blockStatusCode);
   validateObservability(config);
+  validateRedaction(config);
   validatePolicy(config);
   for (const [pattern, profile] of Object.entries(config.routes)) {
     validateRouteProfile(pattern, profile);
@@ -341,6 +361,21 @@ function validateRouteProfile(pattern, profile) {
   }
   if (profile.response?.blockStatusCode !== void 0) {
     validateResponse(`routes.${pattern}.response`, profile.response.blockStatusCode);
+  }
+}
+function validateRuntime(config) {
+  if (!(/* @__PURE__ */ new Set(["allow", "block"])).has(config.runtime.onInternalError)) {
+    throw new Error("runtime.onInternalError must be allow or block");
+  }
+  if (!Number.isInteger(config.runtime.internalErrorStatusCode) || config.runtime.internalErrorStatusCode < 500 || config.runtime.internalErrorStatusCode > 599) {
+    throw new Error("runtime.internalErrorStatusCode must be a 5xx integer");
+  }
+  if (!Number.isFinite(config.runtime.maxInspectionMs) || config.runtime.maxInspectionMs < 0) {
+    throw new Error("runtime.maxInspectionMs must be a non-negative number");
+  }
+  for (const path of config.runtime.bypass.paths) validateRoutePattern(path, "runtime.bypass.paths[]");
+  for (const method of config.runtime.bypass.methods) {
+    if (!/^[A-Z]+$/.test(method)) throw new Error("runtime.bypass.methods must contain uppercase HTTP methods");
   }
 }
 function validateRuleConfig(path, rules) {
@@ -402,6 +437,18 @@ function validateRuleConfig(path, rules) {
   }
   for (const contentType of rules.contentType.allowedJsonMimeTypes) {
     validateMimePattern(`${path}.contentType.allowedJsonMimeTypes[]`, contentType);
+  }
+}
+function validateRedaction(config) {
+  const redactionModes = /* @__PURE__ */ new Set(["none", "mask", "hash", "omit"]);
+  if (!redactionModes.has(config.observability.redaction.ip)) {
+    throw new Error("observability.redaction.ip must be none, mask, hash, or omit");
+  }
+  if (!redactionModes.has(config.observability.redaction.identity)) {
+    throw new Error("observability.redaction.identity must be none, mask, hash, or omit");
+  }
+  if (!(/* @__PURE__ */ new Set(["full", "omit"])).has(config.observability.redaction.userAgent)) {
+    throw new Error("observability.redaction.userAgent must be full or omit");
   }
 }
 function validatePolicy(config) {
@@ -1947,19 +1994,32 @@ function createDhal(options = {}) {
     try {
       decision = await evaluate(normalizedReq, effectiveConfig, rateLimitStore, signalStore, ipReputation);
     } catch (error) {
+      const shouldBlock = effectiveConfig.runtime.onInternalError === "block" || effectiveConfig.mode === "strict";
       decision = {
-        action: effectiveConfig.mode === "strict" ? "block" : "allow",
-        statusCode: effectiveConfig.mode === "strict" ? 500 : 200,
+        action: shouldBlock ? "block" : "allow",
+        statusCode: shouldBlock ? effectiveConfig.runtime.internalErrorStatusCode : 200,
         reason: "Dhal internal rule evaluation error",
         ruleId: "dhal.internal_error",
-        score: effectiveConfig.mode === "strict" ? 100 : 0,
+        score: shouldBlock ? 100 : 0,
         meta: {
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
+          failBehavior: shouldBlock ? "closed" : "open"
+        }
+      };
+    }
+    const durationMs = import_node_perf_hooks.performance.now() - startedAt;
+    if (effectiveConfig.runtime.maxInspectionMs > 0 && durationMs > effectiveConfig.runtime.maxInspectionMs) {
+      decision = {
+        ...decision,
+        meta: {
+          ...decision.meta,
+          inspectionOverBudget: true,
+          inspectionDurationMs: durationMs,
+          inspectionBudgetMs: effectiveConfig.runtime.maxInspectionMs
         }
       };
     }
     decision = enrichDecision(decision, effectiveConfig, context.routePattern, context.routeProfile);
-    const durationMs = import_node_perf_hooks.performance.now() - startedAt;
     const ruleCategory = deriveRuleCategory(decision.ruleId);
     const policyDecision = applyPolicyToDecision(decision, {
       req: normalizedReq,
@@ -2008,6 +2068,13 @@ function createDhal(options = {}) {
 }
 async function evaluate(req, config, rateLimitStore, signalStore, ipReputation) {
   if (config.mode === "off") return allow("Dhal disabled");
+  if (isRuntimeBypassed(req, config)) {
+    return {
+      ...allow("Request bypassed by Dhal runtime policy"),
+      ruleId: "runtime.bypass",
+      meta: { bypassed: true }
+    };
+  }
   const ipDecision = evaluateIpRules(req, config);
   if (ipDecision?.action === "allow") return ipDecision;
   if (ipDecision?.action === "block") return ipDecision;
@@ -2091,20 +2158,12 @@ function allow(reason) {
 function buildEvent(req, decision, durationMs, config) {
   const ruleCategory = deriveRuleCategory(decision.ruleId);
   const threatKind = typeof decision.meta?.threatKind === "string" ? decision.meta.threatKind : ruleCategory === "signature" || ruleCategory === "ip" || ruleCategory === "rate_limit" ? ruleCategory : void 0;
+  const safeRequest = redactRequestForObservability(req, config);
   const baseEvent = {
     eventId: (0, import_node_crypto2.randomUUID)(),
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
     correlationId: req.correlationId ?? extractCorrelationId(req, config),
-    request: {
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      route: req.route,
-      userId: req.userId,
-      tenantId: req.tenantId,
-      apiKeyId: req.apiKeyId,
-      userAgent: getHeader(req.headers, "user-agent")
-    },
+    request: safeRequest,
     decision,
     ruleCategory,
     threatKind,
@@ -2115,6 +2174,58 @@ function buildEvent(req, decision, durationMs, config) {
     ...baseEvent,
     audit: config.policy.audit.enabled && (config.policy.audit.includeSuppressed || baseEvent.decision.meta?.suppressed !== true) ? buildAuditExplanation(baseEvent) : void 0
   };
+}
+function isRuntimeBypassed(req, config) {
+  if (!config.runtime.bypass.enabled) return false;
+  const method = req.method.toUpperCase();
+  if (config.runtime.bypass.methods.includes(method)) return true;
+  return config.runtime.bypass.paths.some((pattern) => matchesRuntimeBypassPath(req.path, pattern));
+}
+function matchesRuntimeBypassPath(path, pattern) {
+  if (pattern.endsWith("*")) return path.startsWith(pattern.slice(0, -1));
+  return path === pattern;
+}
+function redactRequestForObservability(req, config) {
+  const redaction = config.observability.redaction;
+  if (!redaction.enabled) {
+    return {
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      route: req.route,
+      userId: req.userId,
+      tenantId: req.tenantId,
+      apiKeyId: req.apiKeyId,
+      userAgent: getHeader(req.headers, "user-agent")
+    };
+  }
+  return {
+    method: req.method,
+    path: req.path,
+    ip: redactValue(req.ip, redaction.ip, "ip"),
+    route: req.route,
+    userId: redactValue(req.userId, redaction.identity, "id"),
+    tenantId: redactValue(req.tenantId, redaction.identity, "id"),
+    apiKeyId: redactValue(req.apiKeyId, redaction.identity, "id"),
+    userAgent: redaction.userAgent === "omit" ? void 0 : getHeader(req.headers, "user-agent")
+  };
+}
+function redactValue(value, mode, kind) {
+  if (value === void 0) return void 0;
+  if (mode === "none") return value;
+  if (mode === "omit") return void 0;
+  if (mode === "hash") return `sha256:${(0, import_node_crypto2.createHash)("sha256").update(value).digest("hex").slice(0, 16)}`;
+  return kind === "ip" ? maskIp(value) : `${value.slice(0, 3)}\u2026`;
+}
+function maskIp(ip) {
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+    return ip.replace(/\.\d+$/, ".0");
+  }
+  if (ip.includes(":")) {
+    const groups = ip.split(":");
+    return `${groups.slice(0, 3).join(":")}:\u2026`;
+  }
+  return "masked";
 }
 function deriveRuleCategory(ruleId) {
   if (!ruleId) return "none";

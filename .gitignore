@@ -42,10 +42,6 @@ benchmark-results/
 *.tar.gz
 package-lock.json.bak
 
-# Keep package-lock only if you intentionally want reproducible app-style installs.
-# For libraries, many teams omit it. Uncomment if you do not want to commit it:
-# package-lock.json
-
 # Local npm auth/config
 .npmrc
 !.npmrc.example

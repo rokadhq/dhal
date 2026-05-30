@@ -42,6 +42,16 @@ var import_node_path = require("path");
 var defaultConfig = {
   mode: "monitor",
   trustProxy: false,
+  runtime: {
+    onInternalError: "allow",
+    internalErrorStatusCode: 500,
+    maxInspectionMs: 25,
+    bypass: {
+      enabled: true,
+      paths: ["/health", "/healthz", "/ready", "/readyz", "/live", "/livez"],
+      methods: ["OPTIONS"]
+    }
+  },
   identity: {
     headers: {
       userId: ["x-dhal-user-id", "x-user-id"],
@@ -168,6 +178,8 @@ var defaultConfig = {
         content_type: "medium"
       },
       rules: {
+        "ip.allow": "info",
+        "ip.block": "high",
         "honeypot.triggered": "critical",
         "credential_stuffing.threshold_exceeded": "high",
         "ip.reputation": "high",
@@ -203,6 +215,12 @@ var defaultConfig = {
     }
   },
   observability: {
+    redaction: {
+      enabled: true,
+      ip: "mask",
+      identity: "hash",
+      userAgent: "full"
+    },
     correlation: {
       headers: ["x-request-id", "x-correlation-id", "traceparent"]
     },
@@ -281,11 +299,13 @@ function validateConfig(config) {
     validateRoutePattern(pattern, `rateLimit.routes.${pattern}`);
     validateRateLimit(`rateLimit.routes.${pattern}`, limit.max, limit.windowSeconds);
   }
+  validateRuntime(config);
   validateRuleConfig("rules", config.rules);
   validateIdentityHeaders(config);
   validateReputation(config);
   validateResponse("response", config.response.blockStatusCode);
   validateObservability(config);
+  validateRedaction(config);
   validatePolicy(config);
   for (const [pattern, profile] of Object.entries(config.routes)) {
     validateRouteProfile(pattern, profile);
@@ -339,6 +359,21 @@ function validateRouteProfile(pattern, profile) {
   }
   if (profile.response?.blockStatusCode !== void 0) {
     validateResponse(`routes.${pattern}.response`, profile.response.blockStatusCode);
+  }
+}
+function validateRuntime(config) {
+  if (!(/* @__PURE__ */ new Set(["allow", "block"])).has(config.runtime.onInternalError)) {
+    throw new Error("runtime.onInternalError must be allow or block");
+  }
+  if (!Number.isInteger(config.runtime.internalErrorStatusCode) || config.runtime.internalErrorStatusCode < 500 || config.runtime.internalErrorStatusCode > 599) {
+    throw new Error("runtime.internalErrorStatusCode must be a 5xx integer");
+  }
+  if (!Number.isFinite(config.runtime.maxInspectionMs) || config.runtime.maxInspectionMs < 0) {
+    throw new Error("runtime.maxInspectionMs must be a non-negative number");
+  }
+  for (const path of config.runtime.bypass.paths) validateRoutePattern(path, "runtime.bypass.paths[]");
+  for (const method of config.runtime.bypass.methods) {
+    if (!/^[A-Z]+$/.test(method)) throw new Error("runtime.bypass.methods must contain uppercase HTTP methods");
   }
 }
 function validateRuleConfig(path, rules) {
@@ -400,6 +435,18 @@ function validateRuleConfig(path, rules) {
   }
   for (const contentType of rules.contentType.allowedJsonMimeTypes) {
     validateMimePattern(`${path}.contentType.allowedJsonMimeTypes[]`, contentType);
+  }
+}
+function validateRedaction(config) {
+  const redactionModes = /* @__PURE__ */ new Set(["none", "mask", "hash", "omit"]);
+  if (!redactionModes.has(config.observability.redaction.ip)) {
+    throw new Error("observability.redaction.ip must be none, mask, hash, or omit");
+  }
+  if (!redactionModes.has(config.observability.redaction.identity)) {
+    throw new Error("observability.redaction.identity must be none, mask, hash, or omit");
+  }
+  if (!(/* @__PURE__ */ new Set(["full", "omit"])).has(config.observability.redaction.userAgent)) {
+    throw new Error("observability.redaction.userAgent must be full or omit");
   }
 }
 function validatePolicy(config) {

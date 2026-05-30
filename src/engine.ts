@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { loadDhalConfig } from "./config.js";
 import { createAbuseIpDbProviderFromConfig } from "./reputation/abuseipdb.js";
@@ -66,21 +66,35 @@ export function createDhal(options: DhalOptions = {}): DhalEngine {
     try {
       decision = await evaluate(normalizedReq, effectiveConfig, rateLimitStore, signalStore, ipReputation);
     } catch (error) {
+      const shouldBlock = effectiveConfig.runtime.onInternalError === "block" || effectiveConfig.mode === "strict";
       decision = {
-        action: effectiveConfig.mode === "strict" ? "block" : "allow",
-        statusCode: effectiveConfig.mode === "strict" ? 500 : 200,
+        action: shouldBlock ? "block" : "allow",
+        statusCode: shouldBlock ? effectiveConfig.runtime.internalErrorStatusCode : 200,
         reason: "Dhal internal rule evaluation error",
         ruleId: "dhal.internal_error",
-        score: effectiveConfig.mode === "strict" ? 100 : 0,
+        score: shouldBlock ? 100 : 0,
         meta: {
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
+          failBehavior: shouldBlock ? "closed" : "open"
+        }
+      };
+    }
+
+    const durationMs = performance.now() - startedAt;
+    if (effectiveConfig.runtime.maxInspectionMs > 0 && durationMs > effectiveConfig.runtime.maxInspectionMs) {
+      decision = {
+        ...decision,
+        meta: {
+          ...decision.meta,
+          inspectionOverBudget: true,
+          inspectionDurationMs: durationMs,
+          inspectionBudgetMs: effectiveConfig.runtime.maxInspectionMs
         }
       };
     }
 
     decision = enrichDecision(decision, effectiveConfig, context.routePattern, context.routeProfile);
 
-    const durationMs = performance.now() - startedAt;
     const ruleCategory = deriveRuleCategory(decision.ruleId);
     const policyDecision = applyPolicyToDecision(decision, {
       req: normalizedReq,
@@ -143,6 +157,14 @@ async function evaluate(
   ipReputation: IpReputationEvaluator
 ): Promise<DhalDecision> {
   if (config.mode === "off") return allow("Dhal disabled");
+
+  if (isRuntimeBypassed(req, config)) {
+    return {
+      ...allow("Request bypassed by Dhal runtime policy"),
+      ruleId: "runtime.bypass",
+      meta: { bypassed: true }
+    };
+  }
 
   const ipDecision = evaluateIpRules(req, config);
   if (ipDecision?.action === "allow") return ipDecision;
@@ -258,21 +280,13 @@ function buildEvent(req: DhalRequest, decision: DhalDecision, durationMs: number
     : ruleCategory === "signature" || ruleCategory === "ip" || ruleCategory === "rate_limit"
       ? ruleCategory
       : undefined;
+  const safeRequest = redactRequestForObservability(req, config);
 
   const baseEvent = {
     eventId: randomUUID(),
     timestamp: new Date().toISOString(),
     correlationId: req.correlationId ?? extractCorrelationId(req, config),
-    request: {
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      route: req.route,
-      userId: req.userId,
-      tenantId: req.tenantId,
-      apiKeyId: req.apiKeyId,
-      userAgent: getHeader(req.headers, "user-agent")
-    },
+    request: safeRequest,
     decision,
     ruleCategory,
     threatKind,
@@ -284,6 +298,64 @@ function buildEvent(req: DhalRequest, decision: DhalDecision, durationMs: number
     ...baseEvent,
     audit: config.policy.audit.enabled && (config.policy.audit.includeSuppressed || baseEvent.decision.meta?.suppressed !== true) ? buildAuditExplanation(baseEvent) : undefined
   };
+}
+
+function isRuntimeBypassed(req: DhalRequest, config: DhalConfig): boolean {
+  if (!config.runtime.bypass.enabled) return false;
+  const method = req.method.toUpperCase();
+  if (config.runtime.bypass.methods.includes(method)) return true;
+  return config.runtime.bypass.paths.some((pattern) => matchesRuntimeBypassPath(req.path, pattern));
+}
+
+function matchesRuntimeBypassPath(path: string, pattern: string): boolean {
+  if (pattern.endsWith("*")) return path.startsWith(pattern.slice(0, -1));
+  return path === pattern;
+}
+
+function redactRequestForObservability(req: DhalRequest, config: DhalConfig): DhalSecurityEvent["request"] {
+  const redaction = config.observability.redaction;
+  if (!redaction.enabled) {
+    return {
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      route: req.route,
+      userId: req.userId,
+      tenantId: req.tenantId,
+      apiKeyId: req.apiKeyId,
+      userAgent: getHeader(req.headers, "user-agent")
+    };
+  }
+
+  return {
+    method: req.method,
+    path: req.path,
+    ip: redactValue(req.ip, redaction.ip, "ip"),
+    route: req.route,
+    userId: redactValue(req.userId, redaction.identity, "id"),
+    tenantId: redactValue(req.tenantId, redaction.identity, "id"),
+    apiKeyId: redactValue(req.apiKeyId, redaction.identity, "id"),
+    userAgent: redaction.userAgent === "omit" ? undefined : getHeader(req.headers, "user-agent")
+  };
+}
+
+function redactValue(value: string | undefined, mode: "none" | "mask" | "hash" | "omit", kind: "ip" | "id"): string | undefined {
+  if (value === undefined) return undefined;
+  if (mode === "none") return value;
+  if (mode === "omit") return undefined;
+  if (mode === "hash") return `sha256:${createHash("sha256").update(value).digest("hex").slice(0, 16)}`;
+  return kind === "ip" ? maskIp(value) : `${value.slice(0, 3)}…`;
+}
+
+function maskIp(ip: string): string {
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+    return ip.replace(/\.\d+$/, ".0");
+  }
+  if (ip.includes(":")) {
+    const groups = ip.split(":");
+    return `${groups.slice(0, 3).join(":")}:…`;
+  }
+  return "masked";
 }
 
 function deriveRuleCategory(ruleId?: string): string {

@@ -65,6 +65,22 @@ export function evaluateDhalCiPolicy(config: DhalConfig): DhalCiResult {
     }
   }
 
+  if (!config.observability.redaction.enabled) {
+    findings.push({
+      level: "warning",
+      code: "observability.redaction_disabled",
+      message: "Observability redaction is disabled; logs/events may include raw IPs or identity keys."
+    });
+  }
+
+  if (config.runtime.onInternalError === "block" && config.mode !== "strict") {
+    findings.push({
+      level: "warning",
+      code: "runtime.fail_closed",
+      message: "runtime.onInternalError is block. Validate this carefully to avoid availability incidents."
+    });
+  }
+
   if (config.ip.reputation.enabled && config.ip.reputation.mode === "blocking" && config.ip.reputation.timeoutMs > 1000) {
     findings.push({
       level: "warning",

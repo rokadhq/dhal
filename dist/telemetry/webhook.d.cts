@@ -1,4 +1,4 @@
-import { E as DhalTelemetry, f as DhalConfig, z as DhalSecurityEvent } from '../types-CX1y5ozy.cjs';
+import { E as DhalTelemetry, f as DhalConfig, z as DhalSecurityEvent } from '../types-6Dn0mDWH.cjs';
 
 declare class WebhookDhalTelemetry implements DhalTelemetry {
     private readonly config;

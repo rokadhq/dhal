@@ -33,6 +33,7 @@ function getDhalConfigJsonSchema() {
     properties: {
       mode: { $ref: "#/$defs/mode" },
       trustProxy: { type: "boolean" },
+      runtime: { $ref: "#/$defs/runtime" },
       identity: { type: "object" },
       ip: { type: "object" },
       rateLimit: { type: "object" },
@@ -42,13 +43,41 @@ function getDhalConfigJsonSchema() {
         additionalProperties: { $ref: "#/$defs/routeProfile" }
       },
       policy: { $ref: "#/$defs/policy" },
-      observability: { type: "object" },
+      observability: { type: "object", properties: { redaction: { $ref: "#/$defs/redaction" } }, additionalProperties: true },
       response: { type: "object" }
     },
     $defs: {
       mode: { enum: ["off", "monitor", "block", "strict"] },
       severity: { enum: ["info", "low", "medium", "high", "critical"] },
       rulePack: { enum: ["generic-web", "api", "auth", "wordpress", "strict-api"] },
+      runtime: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          onInternalError: { enum: ["allow", "block"] },
+          internalErrorStatusCode: { type: "integer", minimum: 500, maximum: 599 },
+          maxInspectionMs: { type: "number", minimum: 0 },
+          bypass: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: { type: "boolean" },
+              paths: { type: "array", items: { type: "string" } },
+              methods: { type: "array", items: { type: "string" } }
+            }
+          }
+        }
+      },
+      redaction: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          enabled: { type: "boolean" },
+          ip: { enum: ["none", "mask", "hash", "omit"] },
+          identity: { enum: ["none", "mask", "hash", "omit"] },
+          userAgent: { enum: ["full", "omit"] }
+        }
+      },
       rateLimit: {
         type: "object",
         properties: {

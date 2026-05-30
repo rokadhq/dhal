@@ -1,25 +1,38 @@
 #!/usr/bin/env node
 import {
-  evaluateDhalCiPolicy
-} from "./chunk-RMYOAUND.js";
+  runDhalAutosetup
+} from "./chunk-2ZBPTWCA.js";
 import {
   getDhalConfigJsonSchema
-} from "./chunk-TBSX6UF4.js";
+} from "./chunk-RNHUOQPX.js";
+import {
+  applyDhalPreset,
+  getDhalPreset,
+  listDhalPresets,
+  readConfigIfExists
+} from "./chunk-7IT5NXY4.js";
+import {
+  runDhalSupportReport
+} from "./chunk-EWHY4K3Y.js";
+import {
+  evaluateDhalCiPolicy,
+  runDhalDoctor
+} from "./chunk-7YFUZ4GA.js";
+import {
+  getDhalRuleCatalog
+} from "./chunk-INPUNSI6.js";
 import {
   createDhal,
   extractIdentity
-} from "./chunk-UODWKQLZ.js";
+} from "./chunk-DHI46RN2.js";
+import "./chunk-BGMTMZGL.js";
+import "./chunk-X7PS5EQX.js";
 import "./chunk-IRZXZAQ4.js";
 import "./chunk-JCY2QFLP.js";
-import "./chunk-BGMTMZGL.js";
-import {
-  runDhalAutosetup
-} from "./chunk-RXYJ2NVO.js";
 import {
   defaultConfig,
   loadDhalConfig
-} from "./chunk-JUWTNUCA.js";
-import "./chunk-X7PS5EQX.js";
+} from "./chunk-35HYGEBK.js";
 
 // src/cli.ts
 import { existsSync, readFileSync, writeFileSync } from "fs";
@@ -55,6 +68,19 @@ async function main() {
       return;
     case "ci":
       runCi(parsed.configPath ?? parsed.positional[0], Boolean(parsed.json));
+      return;
+    case "doctor":
+      runDoctor(parsed.configPath ?? parsed.positional[0], Boolean(parsed.json));
+      return;
+    case "report":
+      runReport(parsed.configPath ?? parsed.positional[0], Boolean(parsed.json), parsed.outputPath);
+      return;
+    case "rules":
+      listRules(parsed.configPath, Boolean(parsed.json));
+      return;
+    case "presets":
+    case "preset":
+      handlePresets(parsed);
       return;
     case "help":
     case "--help":
@@ -160,6 +186,139 @@ function runCi(path = "dhal.json", json = false) {
   if (!result.ok) {
     process.exitCode = 1;
   }
+}
+function runReport(path = "dhal.json", json = false, outputPath) {
+  const report = runDhalSupportReport({ configPath: path });
+  const serialized = `${JSON.stringify(report, null, 2)}
+`;
+  if (outputPath) {
+    const target = resolve(process.cwd(), outputPath);
+    writeFileSync(target, serialized);
+    if (json) console.log(JSON.stringify({ ok: true, wrote: target }, null, 2));
+    else console.log(`Created Dhal support report ${target}`);
+    return;
+  }
+  if (json) {
+    console.log(serialized);
+    return;
+  }
+  console.log(`Dhal report: ${report.packageName}`);
+  console.log(`Node: ${report.runtime.node} ${report.runtime.platform}/${report.runtime.arch}`);
+  console.log(`Config: ${report.configPath}`);
+  console.log(`Mode: ${report.config.mode}`);
+  console.log(`Route profiles: ${report.config.routeProfiles}`);
+  console.log(`Enabled rules: ${report.enabledRules.length}`);
+  console.log(`Doctor: ${report.doctor.ok ? "ok" : "needs attention"}`);
+  console.log(`CI: ${report.ci.ok ? "ok" : "failed"}`);
+  console.log("No secrets are included. Use --json or --output dhal.report.json for support/debugging.");
+}
+function runDoctor(path = "dhal.json", json = false) {
+  const result = runDhalDoctor({ configPath: path });
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    console.log(`Dhal doctor: ${result.ok ? "ok" : "needs attention"}`);
+    console.log(`Package: ${result.packageName}`);
+    console.log(`CLI: ${result.cli}`);
+    console.log(`Config: ${result.configPath}`);
+    if (result.summary) {
+      console.log(`Mode: ${result.summary.mode}`);
+      console.log(`Route profiles: ${result.summary.routeProfiles}`);
+      console.log(`Enabled catalog rules: ${result.summary.enabledRules}`);
+      console.log(`Rate limit store: ${result.summary.rateLimitStore}`);
+    }
+    for (const check of result.checks) {
+      const prefix = check.level === "ok" ? "OK" : check.level === "warning" ? "WARN" : "ERROR";
+      console.log(`${prefix} ${check.code}: ${check.message}`);
+      if (check.hint) console.log(`  hint: ${check.hint}`);
+    }
+  }
+  if (!result.ok) process.exitCode = 1;
+}
+function listRules(configPath, json = false) {
+  const config = configPath ? loadDhalConfig(configPath) : loadDhalConfig("dhal.json");
+  const rules = getDhalRuleCatalog(config);
+  if (json) {
+    console.log(JSON.stringify({ rules }, null, 2));
+    return;
+  }
+  console.log(`Dhal rules: ${rules.length} catalog entries`);
+  for (const rule of rules) {
+    const enabled = rule.enabled ? "on " : "off";
+    const severity = rule.effectiveSeverity ?? rule.defaultSeverity;
+    console.log(`${enabled} ${severity.padEnd(8)} ${rule.id.padEnd(42)} ${rule.title}`);
+  }
+}
+function handlePresets(parsed) {
+  const [subcommand, name] = parsed.positional;
+  if (!subcommand || subcommand === "list") {
+    const presets = listDhalPresets();
+    if (parsed.json) {
+      console.log(JSON.stringify({ presets }, null, 2));
+      return;
+    }
+    console.log(`Dhal presets: ${presets.length} available`);
+    for (const preset of presets) {
+      console.log(`${preset.name.padEnd(18)} ${preset.title}`);
+      console.log(`  ${preset.description}`);
+    }
+    return;
+  }
+  if (subcommand === "show") {
+    if (!name) {
+      console.error("Usage: dhal presets show <name> [--json]");
+      process.exitCode = 1;
+      return;
+    }
+    const preset = getDhalPreset(name);
+    if (parsed.json) {
+      console.log(JSON.stringify(preset, null, 2));
+      return;
+    }
+    console.log(`${preset.name}: ${preset.title}`);
+    console.log(preset.description);
+    console.log(`Intended for: ${preset.intendedFor.join(", ")}`);
+    for (const note of preset.notes) console.log(`- ${note}`);
+    console.log("\nConfig overlay:");
+    console.log(JSON.stringify(preset.config, null, 2));
+    return;
+  }
+  if (subcommand === "apply") {
+    if (!name) {
+      console.error("Usage: dhal presets apply <name> [--config dhal.json] [--output dhal.preset.json] [--write] [--json]");
+      process.exitCode = 1;
+      return;
+    }
+    const base = readConfigIfExists(parsed.configPath ?? "dhal.json");
+    const config = applyDhalPreset(base, name);
+    const serialized = `${JSON.stringify(config, null, 2)}
+`;
+    if (parsed.write) {
+      const target = resolve(process.cwd(), parsed.outputPath ?? parsed.configPath ?? "dhal.json");
+      writeFileSync(target, serialized);
+      if (parsed.json) console.log(JSON.stringify({ ok: true, preset: name, wrote: target }, null, 2));
+      else console.log(`Applied preset ${name} and wrote ${target}`);
+      return;
+    }
+    if (parsed.outputPath) {
+      const target = resolve(process.cwd(), parsed.outputPath);
+      if (existsSync(target)) {
+        console.error(`Refusing to overwrite existing file: ${target}`);
+        process.exitCode = 1;
+        return;
+      }
+      writeFileSync(target, serialized);
+      if (parsed.json) console.log(JSON.stringify({ ok: true, preset: name, wrote: target }, null, 2));
+      else console.log(`Applied preset ${name} and wrote ${target}`);
+      return;
+    }
+    if (parsed.json) console.log(JSON.stringify({ ok: true, preset: name, config }, null, 2));
+    else console.log(serialized);
+    return;
+  }
+  console.error(`Unknown presets subcommand: ${subcommand}`);
+  console.error("Usage: dhal presets [list|show|apply] ...");
+  process.exitCode = 1;
 }
 async function autosetup(parsed) {
   const projectRoot = parsed.positional[0] ?? ".";
@@ -338,6 +497,10 @@ Usage:
   dhal schema [outputPath]
   dhal migrate [inputPath] [outputPath]
   dhal ci [--config dhal.json] [--json]
+  dhal doctor [--config dhal.json] [--json]
+  dhal report [--config dhal.json] [--json] [--output dhal.report.json]
+  dhal rules [--config dhal.json] [--json]
+  dhal presets [list|show <name>|apply <name>] [--config dhal.json] [--output path] [--write] [--json]
   dhal autosetup [projectRoot] [--provider gateway|openai|anthropic|google|mistral|xai|custom] [--model model-id] [--write] [--json]
   dhal replay ./false-positive-fixtures.json [--config dhal.json] [--json] [--fail-on-block]
   dhal simulate ./requests.json [--config dhal.json] [--json]
@@ -349,6 +512,10 @@ Commands:
   schema          Print JSON schema, or write it to outputPath
   migrate         Print or write a config migrated to the current schema
   ci              Validate config against CI safety policy
+  doctor          Run local production-readiness diagnostics
+  report          Generate a redacted support report for debugging public installs
+  rules           List built-in rule catalog entries and effective enabled/severity state
+  presets         List, inspect, or apply production-ready dhal.json config presets
   autosetup       Scan a Node project and propose/apply route-aware Dhal rules; can use the AI SDK package
   replay          Replay expected-allow/block fixtures for false-positive regression testing
   simulate        Run Dhal decisions against request fixtures, including optional responseStatus signals

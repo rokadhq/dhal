@@ -1,20 +1,12 @@
 {
   "name": "@rokadhq/dhal",
-  "version": "0.8.3",
-  "description": "App-native WAF, AI-assisted autosetup, rule packs, policy controls, bot defense, credential-stuffing protection, and request security middleware for Node.js applications.",
+  "version": "0.11.0-alpha.0",
+  "description": "Alpha-public app-native WAF for Node.js with runtime safety controls, support reports, config presets, AI-assisted autosetup, rule packs, policy controls, bot defense, credential-stuffing protection, and observability.",
   "type": "module",
   "license": "MIT",
   "engines": {
     "node": ">=18.18.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/rokadhq/dhal.git"
-  },
-  "bugs": {
-    "url": "https://github.com/rokadhq/dhal/issues"
-  },
-  "homepage": "https://dhal.rokad.co",
   "bin": {
     "dhal": "dist/cli.js"
   },
@@ -83,11 +75,32 @@
       "require": "./dist/autosetup/index.cjs"
     },
     "./package.json": "./package.json",
-    "./dhal.schema.json": "./dhal.schema.json"
+    "./dhal.schema.json": "./dhal.schema.json",
+    "./doctor": {
+      "types": "./dist/doctor.d.ts",
+      "import": "./dist/doctor.js",
+      "require": "./dist/doctor.cjs"
+    },
+    "./rules/catalog": {
+      "types": "./dist/rules/catalog.d.ts",
+      "import": "./dist/rules/catalog.js",
+      "require": "./dist/rules/catalog.cjs"
+    },
+    "./presets": {
+      "types": "./dist/presets.d.ts",
+      "import": "./dist/presets.js",
+      "require": "./dist/presets.cjs"
+    },
+    "./report": {
+      "types": "./dist/report.d.ts",
+      "import": "./dist/report.js",
+      "require": "./dist/report.cjs"
+    }
   },
   "files": [
     "dist",
     "README.md",
+    "ALPHA.md",
     "SECURITY_NOTES.md",
     "dhal.schema.json",
     "RELEASE_INTEGRITY.md",
@@ -97,7 +110,7 @@
     "PUBLISHING.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/cli.ts src/config-schema.ts src/adapters/express.ts src/adapters/fastify.ts src/adapters/node-http.ts src/stores/redis-rate-limit-store.ts src/stores/redis-signal-store.ts src/stores/memory-signal-store.ts src/reputation/abuseipdb.ts src/telemetry/otel.ts src/telemetry/webhook.ts src/autosetup/index.ts --format esm,cjs --dts --clean",
+    "build": "tsup src/index.ts src/cli.ts src/config-schema.ts src/doctor.ts src/rules/catalog.ts src/presets.ts src/report.ts src/adapters/express.ts src/adapters/fastify.ts src/adapters/node-http.ts src/stores/redis-rate-limit-store.ts src/stores/redis-signal-store.ts src/stores/memory-signal-store.ts src/reputation/abuseipdb.ts src/telemetry/otel.ts src/telemetry/webhook.ts src/autosetup/index.ts --format esm,cjs --dts --clean",
     "typecheck": "tsc --noEmit",
     "dev:express": "tsx examples/express.ts",
     "dev:fastify": "tsx examples/fastify.ts",
@@ -112,7 +125,7 @@
     "prepublishOnly": "npm run verify:publish",
     "doctor": "node -e \"console.log(`node ${process.version}`); console.log(`npm ${process.env.npm_config_user_agent || 'unknown'}`)\"",
     "publish:local": "npm publish --tag next --access public --provenance=false",
-    "publish:ci": "npm publish --tag next --access public --provenance"
+    "publish:ci": "npm publish --tag next --access public --provenance=false"
   },
   "peerDependencies": {
     "@opentelemetry/api": ">=1.8.0",
@@ -191,5 +204,13 @@
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
     "access": "public"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rokadhq/dhal.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rokadhq/dhal/issues"
+  },
+  "homepage": "https://github.com/rokadhq/dhal#readme"
 }

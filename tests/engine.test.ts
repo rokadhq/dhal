@@ -337,3 +337,149 @@ describe("Dhal v0.7 rule quality", () => {
     expect(decision.meta?.confidence).toBeTypeOf("number");
   });
 });
+
+describe("Dhal v0.9 operations tooling", () => {
+  it("exposes rule catalog entries with effective enablement", async () => {
+    const { getDhalRuleCatalog } = await import("../src/rules/catalog.js");
+    const { defaultConfig } = await import("../src/config.js");
+    const rules = getDhalRuleCatalog(defaultConfig);
+
+    expect(rules.length).toBeGreaterThan(10);
+    expect(rules.some((rule) => rule.id === "honeypot.triggered" && rule.enabled === true)).toBe(true);
+    expect(rules.some((rule) => rule.id === "api.positive_security_violation" && rule.enabled === false)).toBe(true);
+  });
+
+  it("runs doctor diagnostics without requiring a config file", async () => {
+    const { runDhalDoctor } = await import("../src/doctor.js");
+    const result = runDhalDoctor({ configPath: "./missing-dhal-doctor-config.json", env: {} });
+
+    expect(result.packageName).toBe("@rokadhq/dhal");
+    expect(result.cli).toBe("dhal");
+    expect(result.configExists).toBe(false);
+    expect(result.checks.some((check) => check.code === "config.missing")).toBe(true);
+    expect(result.summary?.enabledRules).toBeGreaterThan(0);
+  });
+});
+
+describe("Dhal v0.10 presets", () => {
+  it("lists and applies production presets without changing the CLI/config naming contract", async () => {
+    const { listDhalPresets, applyDhalPreset, getDhalPreset } = await import("../src/presets.js");
+    const presets = listDhalPresets();
+    expect(presets.map((preset) => preset.name)).toContain("api-production");
+
+    const preset = getDhalPreset("api-production");
+    expect(preset.title).toContain("Production API");
+
+    const config = applyDhalPreset({}, "api-production");
+    expect(config.trustProxy).toBe(true);
+    expect(config.rateLimit.store).toBe("redis");
+    expect(config.routes["/api/login"]?.mode).toBe("block");
+    expect(config.observability.otel.enabled).toBe(true);
+  });
+});
+
+describe("Dhal v0.11 alpha-public hardening", () => {
+  it("bypasses configured health-check paths before expensive stores", async () => {
+    const throwingStore = {
+      async consume() {
+        throw new Error("store should not be called for bypassed requests");
+      }
+    };
+    const engine = createDhal({
+      configPath: "./missing-dhal-test-config.json",
+      logger,
+      rateLimitStore: throwingStore,
+      config: {
+        mode: "block",
+        runtime: {
+          bypass: {
+            enabled: true,
+            paths: ["/healthz"],
+            methods: []
+          }
+        },
+        observability: { logs: { enabled: false } }
+      }
+    });
+
+    const decision = await engine.inspect(req({ path: "/healthz", url: "/healthz" }));
+    expect(decision.action).toBe("allow");
+    expect(decision.ruleId).toBe("runtime.bypass");
+  });
+
+  it("can fail closed on internal rule errors when explicitly configured", async () => {
+    const throwingStore = {
+      async consume() {
+        throw new Error("rate limit backend unavailable");
+      }
+    };
+    const engine = createDhal({
+      configPath: "./missing-dhal-test-config.json",
+      logger,
+      rateLimitStore: throwingStore,
+      config: {
+        mode: "block",
+        runtime: {
+          onInternalError: "block",
+          internalErrorStatusCode: 503,
+          bypass: { enabled: false }
+        },
+        rateLimit: { enabled: true },
+        rules: {
+          honeypot: { enabled: false },
+          bot: { enabled: false },
+          credentialStuffing: { enabled: false },
+          headers: { enabled: false },
+          sqli: false,
+          xss: false,
+          pathTraversal: false,
+          badUserAgents: false
+        },
+        observability: { logs: { enabled: false } }
+      }
+    });
+
+    const decision = await engine.inspect(req({ path: "/api", url: "/api" }));
+    expect(decision.action).toBe("block");
+    expect(decision.statusCode).toBe(503);
+    expect(decision.ruleId).toBe("dhal.internal_error");
+    expect(decision.meta?.failBehavior).toBe("closed");
+  });
+
+  it("redacts security event request fields by default", async () => {
+    const events: any[] = [];
+    const engine = createDhal({
+      configPath: "./missing-dhal-test-config.json",
+      logger,
+      config: {
+        mode: "block",
+        rateLimit: { enabled: false },
+        rules: {
+          honeypot: { enabled: true, paths: ["/.env"] },
+          bot: { enabled: false },
+          credentialStuffing: { enabled: false }
+        },
+        observability: { logs: { enabled: false } }
+      }
+    });
+
+    engine.events.onDecision((event) => events.push(event));
+    await engine.inspect(req({ path: "/.env", url: "/.env", userId: "user-123", tenantId: "tenant-123", apiKeyId: "key-123" }));
+
+    expect(events).toHaveLength(1);
+    expect(events[0].request.ip).toBe("203.0.113.0");
+    expect(events[0].request.userId).toMatch(/^sha256:/);
+    expect(events[0].request.tenantId).toMatch(/^sha256:/);
+    expect(events[0].request.apiKeyId).toMatch(/^sha256:/);
+  });
+
+  it("generates a support report without including secret values", async () => {
+    const { runDhalSupportReport } = await import("../src/report.js");
+    const report = runDhalSupportReport({ configPath: "./missing-dhal-report-config.json", env: { ABUSEIPDB_API_KEY: "secret" } });
+
+    expect(report.packageName).toBe("@rokadhq/dhal");
+    expect(report.cli).toBe("dhal");
+    expect(report.env.abuseIpDbKeyPresent).toBe(true);
+    expect(JSON.stringify(report)).not.toContain("secret");
+  });
+});

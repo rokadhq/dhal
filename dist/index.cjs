@@ -32,6 +32,8 @@ var index_exports = {};
 __export(index_exports, {
   AbuseIpDbProvider: () => AbuseIpDbProvider,
   CompositeDhalTelemetry: () => CompositeDhalTelemetry,
+  DHAL_PRESETS: () => DHAL_PRESETS,
+  DHAL_RULE_CATALOG: () => DHAL_RULE_CATALOG,
   DhalEventBus: () => DhalEventBus,
   IpReputationCache: () => IpReputationCache,
   MemoryRateLimitStore: () => MemoryRateLimitStore,
@@ -40,17 +42,24 @@ __export(index_exports, {
   RedisRateLimitStore: () => RedisRateLimitStore,
   RedisSignalStore: () => RedisSignalStore,
   WebhookDhalTelemetry: () => WebhookDhalTelemetry,
+  applyDhalPreset: () => applyDhalPreset,
   applyPolicyToDecision: () => applyPolicyToDecision,
   buildCredentialKey: () => buildCredentialKey,
   createAbuseIpDbProviderFromConfig: () => createAbuseIpDbProviderFromConfig,
   createDhal: () => createDhal,
   defaultConfig: () => defaultConfig,
   evaluateDhalCiPolicy: () => evaluateDhalCiPolicy,
+  findDhalRule: () => findDhalRule,
   getDhalConfigJsonSchema: () => getDhalConfigJsonSchema,
+  getDhalPreset: () => getDhalPreset,
+  getDhalRuleCatalog: () => getDhalRuleCatalog,
   isCredentialRoute: () => isCredentialRoute,
+  listDhalPresets: () => listDhalPresets,
   loadDhalConfig: () => loadDhalConfig,
   resolveSeverity: () => resolveSeverity,
   runDhalAutosetup: () => runDhalAutosetup,
+  runDhalDoctor: () => runDhalDoctor,
+  runDhalSupportReport: () => runDhalSupportReport,
   severityAtLeast: () => severityAtLeast,
   shouldEmitSecurityEvent: () => shouldEmitSecurityEvent
 });
@@ -66,6 +75,16 @@ var import_node_path = require("path");
 var defaultConfig = {
   mode: "monitor",
   trustProxy: false,
+  runtime: {
+    onInternalError: "allow",
+    internalErrorStatusCode: 500,
+    maxInspectionMs: 25,
+    bypass: {
+      enabled: true,
+      paths: ["/health", "/healthz", "/ready", "/readyz", "/live", "/livez"],
+      methods: ["OPTIONS"]
+    }
+  },
   identity: {
     headers: {
       userId: ["x-dhal-user-id", "x-user-id"],
@@ -192,6 +211,8 @@ var defaultConfig = {
         content_type: "medium"
       },
       rules: {
+        "ip.allow": "info",
+        "ip.block": "high",
         "honeypot.triggered": "critical",
         "credential_stuffing.threshold_exceeded": "high",
         "ip.reputation": "high",
@@ -227,6 +248,12 @@ var defaultConfig = {
     }
   },
   observability: {
+    redaction: {
+      enabled: true,
+      ip: "mask",
+      identity: "hash",
+      userAgent: "full"
+    },
     correlation: {
       headers: ["x-request-id", "x-correlation-id", "traceparent"]
     },
@@ -305,11 +332,13 @@ function validateConfig(config) {
     validateRoutePattern(pattern, `rateLimit.routes.${pattern}`);
     validateRateLimit(`rateLimit.routes.${pattern}`, limit.max, limit.windowSeconds);
   }
+  validateRuntime(config);
   validateRuleConfig("rules", config.rules);
   validateIdentityHeaders(config);
   validateReputation(config);
   validateResponse("response", config.response.blockStatusCode);
   validateObservability(config);
+  validateRedaction(config);
   validatePolicy(config);
   for (const [pattern, profile] of Object.entries(config.routes)) {
     validateRouteProfile(pattern, profile);
@@ -363,6 +392,21 @@ function validateRouteProfile(pattern, profile) {
   }
   if (profile.response?.blockStatusCode !== void 0) {
     validateResponse(`routes.${pattern}.response`, profile.response.blockStatusCode);
+  }
+}
+function validateRuntime(config) {
+  if (!(/* @__PURE__ */ new Set(["allow", "block"])).has(config.runtime.onInternalError)) {
+    throw new Error("runtime.onInternalError must be allow or block");
+  }
+  if (!Number.isInteger(config.runtime.internalErrorStatusCode) || config.runtime.internalErrorStatusCode < 500 || config.runtime.internalErrorStatusCode > 599) {
+    throw new Error("runtime.internalErrorStatusCode must be a 5xx integer");
+  }
+  if (!Number.isFinite(config.runtime.maxInspectionMs) || config.runtime.maxInspectionMs < 0) {
+    throw new Error("runtime.maxInspectionMs must be a non-negative number");
+  }
+  for (const path of config.runtime.bypass.paths) validateRoutePattern(path, "runtime.bypass.paths[]");
+  for (const method of config.runtime.bypass.methods) {
+    if (!/^[A-Z]+$/.test(method)) throw new Error("runtime.bypass.methods must contain uppercase HTTP methods");
   }
 }
 function validateRuleConfig(path, rules) {
@@ -424,6 +468,18 @@ function validateRuleConfig(path, rules) {
   }
   for (const contentType of rules.contentType.allowedJsonMimeTypes) {
     validateMimePattern(`${path}.contentType.allowedJsonMimeTypes[]`, contentType);
+  }
+}
+function validateRedaction(config) {
+  const redactionModes = /* @__PURE__ */ new Set(["none", "mask", "hash", "omit"]);
+  if (!redactionModes.has(config.observability.redaction.ip)) {
+    throw new Error("observability.redaction.ip must be none, mask, hash, or omit");
+  }
+  if (!redactionModes.has(config.observability.redaction.identity)) {
+    throw new Error("observability.redaction.identity must be none, mask, hash, or omit");
+  }
+  if (!(/* @__PURE__ */ new Set(["full", "omit"])).has(config.observability.redaction.userAgent)) {
+    throw new Error("observability.redaction.userAgent must be full or omit");
   }
 }
 function validatePolicy(config) {
@@ -1967,19 +2023,32 @@ function createDhal(options = {}) {
     try {
       decision = await evaluate(normalizedReq, effectiveConfig, rateLimitStore, signalStore, ipReputation);
     } catch (error) {
+      const shouldBlock = effectiveConfig.runtime.onInternalError === "block" || effectiveConfig.mode === "strict";
       decision = {
-        action: effectiveConfig.mode === "strict" ? "block" : "allow",
-        statusCode: effectiveConfig.mode === "strict" ? 500 : 200,
+        action: shouldBlock ? "block" : "allow",
+        statusCode: shouldBlock ? effectiveConfig.runtime.internalErrorStatusCode : 200,
         reason: "Dhal internal rule evaluation error",
         ruleId: "dhal.internal_error",
-        score: effectiveConfig.mode === "strict" ? 100 : 0,
+        score: shouldBlock ? 100 : 0,
         meta: {
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
+          failBehavior: shouldBlock ? "closed" : "open"
+        }
+      };
+    }
+    const durationMs = import_node_perf_hooks.performance.now() - startedAt;
+    if (effectiveConfig.runtime.maxInspectionMs > 0 && durationMs > effectiveConfig.runtime.maxInspectionMs) {
+      decision = {
+        ...decision,
+        meta: {
+          ...decision.meta,
+          inspectionOverBudget: true,
+          inspectionDurationMs: durationMs,
+          inspectionBudgetMs: effectiveConfig.runtime.maxInspectionMs
         }
       };
     }
     decision = enrichDecision(decision, effectiveConfig, context.routePattern, context.routeProfile);
-    const durationMs = import_node_perf_hooks.performance.now() - startedAt;
     const ruleCategory = deriveRuleCategory(decision.ruleId);
     const policyDecision = applyPolicyToDecision(decision, {
       req: normalizedReq,
@@ -2028,6 +2097,13 @@ function createDhal(options = {}) {
 }
 async function evaluate(req, config, rateLimitStore, signalStore, ipReputation) {
   if (config.mode === "off") return allow("Dhal disabled");
+  if (isRuntimeBypassed(req, config)) {
+    return {
+      ...allow("Request bypassed by Dhal runtime policy"),
+      ruleId: "runtime.bypass",
+      meta: { bypassed: true }
+    };
+  }
   const ipDecision = evaluateIpRules(req, config);
   if (ipDecision?.action === "allow") return ipDecision;
   if (ipDecision?.action === "block") return ipDecision;
@@ -2111,20 +2187,12 @@ function allow(reason) {
 function buildEvent(req, decision, durationMs, config) {
   const ruleCategory = deriveRuleCategory(decision.ruleId);
   const threatKind = typeof decision.meta?.threatKind === "string" ? decision.meta.threatKind : ruleCategory === "signature" || ruleCategory === "ip" || ruleCategory === "rate_limit" ? ruleCategory : void 0;
+  const safeRequest = redactRequestForObservability(req, config);
   const baseEvent = {
     eventId: (0, import_node_crypto2.randomUUID)(),
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
     correlationId: req.correlationId ?? extractCorrelationId(req, config),
-    request: {
-      method: req.method,
-      path: req.path,
-      ip: req.ip,
-      route: req.route,
-      userId: req.userId,
-      tenantId: req.tenantId,
-      apiKeyId: req.apiKeyId,
-      userAgent: getHeader(req.headers, "user-agent")
-    },
+    request: safeRequest,
     decision,
     ruleCategory,
     threatKind,
@@ -2135,6 +2203,58 @@ function buildEvent(req, decision, durationMs, config) {
     ...baseEvent,
     audit: config.policy.audit.enabled && (config.policy.audit.includeSuppressed || baseEvent.decision.meta?.suppressed !== true) ? buildAuditExplanation(baseEvent) : void 0
   };
+}
+function isRuntimeBypassed(req, config) {
+  if (!config.runtime.bypass.enabled) return false;
+  const method = req.method.toUpperCase();
+  if (config.runtime.bypass.methods.includes(method)) return true;
+  return config.runtime.bypass.paths.some((pattern) => matchesRuntimeBypassPath(req.path, pattern));
+}
+function matchesRuntimeBypassPath(path, pattern) {
+  if (pattern.endsWith("*")) return path.startsWith(pattern.slice(0, -1));
+  return path === pattern;
+}
+function redactRequestForObservability(req, config) {
+  const redaction = config.observability.redaction;
+  if (!redaction.enabled) {
+    return {
+      method: req.method,
+      path: req.path,
+      ip: req.ip,
+      route: req.route,
+      userId: req.userId,
+      tenantId: req.tenantId,
+      apiKeyId: req.apiKeyId,
+      userAgent: getHeader(req.headers, "user-agent")
+    };
+  }
+  return {
+    method: req.method,
+    path: req.path,
+    ip: redactValue(req.ip, redaction.ip, "ip"),
+    route: req.route,
+    userId: redactValue(req.userId, redaction.identity, "id"),
+    tenantId: redactValue(req.tenantId, redaction.identity, "id"),
+    apiKeyId: redactValue(req.apiKeyId, redaction.identity, "id"),
+    userAgent: redaction.userAgent === "omit" ? void 0 : getHeader(req.headers, "user-agent")
+  };
+}
+function redactValue(value, mode, kind) {
+  if (value === void 0) return void 0;
+  if (mode === "none") return value;
+  if (mode === "omit") return void 0;
+  if (mode === "hash") return `sha256:${(0, import_node_crypto2.createHash)("sha256").update(value).digest("hex").slice(0, 16)}`;
+  return kind === "ip" ? maskIp(value) : `${value.slice(0, 3)}\u2026`;
+}
+function maskIp(ip) {
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+    return ip.replace(/\.\d+$/, ".0");
+  }
+  if (ip.includes(":")) {
+    const groups = ip.split(":");
+    return `${groups.slice(0, 3).join(":")}:\u2026`;
+  }
+  return "masked";
 }
 function deriveRuleCategory(ruleId) {
   if (!ruleId) return "none";
@@ -2178,6 +2298,7 @@ function getDhalConfigJsonSchema() {
     properties: {
       mode: { $ref: "#/$defs/mode" },
       trustProxy: { type: "boolean" },
+      runtime: { $ref: "#/$defs/runtime" },
       identity: { type: "object" },
       ip: { type: "object" },
       rateLimit: { type: "object" },
@@ -2187,13 +2308,41 @@ function getDhalConfigJsonSchema() {
         additionalProperties: { $ref: "#/$defs/routeProfile" }
       },
       policy: { $ref: "#/$defs/policy" },
-      observability: { type: "object" },
+      observability: { type: "object", properties: { redaction: { $ref: "#/$defs/redaction" } }, additionalProperties: true },
       response: { type: "object" }
     },
     $defs: {
       mode: { enum: ["off", "monitor", "block", "strict"] },
       severity: { enum: ["info", "low", "medium", "high", "critical"] },
       rulePack: { enum: ["generic-web", "api", "auth", "wordpress", "strict-api"] },
+      runtime: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          onInternalError: { enum: ["allow", "block"] },
+          internalErrorStatusCode: { type: "integer", minimum: 500, maximum: 599 },
+          maxInspectionMs: { type: "number", minimum: 0 },
+          bypass: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              enabled: { type: "boolean" },
+              paths: { type: "array", items: { type: "string" } },
+              methods: { type: "array", items: { type: "string" } }
+            }
+          }
+        }
+      },
+      redaction: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          enabled: { type: "boolean" },
+          ip: { enum: ["none", "mask", "hash", "omit"] },
+          identity: { enum: ["none", "mask", "hash", "omit"] },
+          userAgent: { enum: ["full", "omit"] }
+        }
+      },
       rateLimit: {
         type: "object",
         properties: {
@@ -2497,6 +2646,20 @@ function evaluateDhalCiPolicy(config) {
         message: `Rule '${ruleName}' is enabled, but no global or route profile is in block/strict mode.`
       });
     }
+  }
+  if (!config.observability.redaction.enabled) {
+    findings.push({
+      level: "warning",
+      code: "observability.redaction_disabled",
+      message: "Observability redaction is disabled; logs/events may include raw IPs or identity keys."
+    });
+  }
+  if (config.runtime.onInternalError === "block" && config.mode !== "strict") {
+    findings.push({
+      level: "warning",
+      code: "runtime.fail_closed",
+      message: "runtime.onInternalError is block. Validate this carefully to avoid availability incidents."
+    });
   }
   if (config.ip.reputation.enabled && config.ip.reputation.mode === "blocking" && config.ip.reputation.timeoutMs > 1e3) {
     findings.push({
@@ -2981,10 +3144,802 @@ function redactScan(scan) {
     files: scan.files.map(({ snippet: _snippet, ...file }) => file)
   };
 }
+
+// src/doctor.ts
+var import_node_fs4 = require("fs");
+var import_node_path4 = require("path");
+
+// src/rules/catalog.ts
+var DHAL_RULE_CATALOG = [
+  {
+    id: "ip.allow",
+    category: "ip",
+    title: "IP allowlist bypass",
+    description: "Allows explicitly trusted IP addresses or CIDR ranges before other checks run.",
+    defaultSeverity: "info",
+    defaultAction: "allow",
+    confidence: 0.99,
+    enabledByDefault: true,
+    configPath: "ip.allow",
+    falsePositiveNotes: "Keep this list short and reviewed because allowlisted traffic bypasses later checks."
+  },
+  {
+    id: "ip.block",
+    category: "ip",
+    title: "IP blocklist",
+    description: "Blocks explicitly denied IP addresses or CIDR ranges.",
+    defaultSeverity: "high",
+    defaultAction: "block",
+    confidence: 0.99,
+    enabledByDefault: true,
+    configPath: "ip.block"
+  },
+  {
+    id: "ip.reputation",
+    category: "ip",
+    title: "IP reputation",
+    description: "Blocks or monitors clients that exceed the configured IP reputation score threshold.",
+    defaultSeverity: "high",
+    defaultAction: "block",
+    confidence: 0.82,
+    enabledByDefault: false,
+    configPath: "ip.reputation",
+    falsePositiveNotes: "Use async mode and cache reputation results before enabling blocking on high-traffic routes."
+  },
+  {
+    id: "rate_limit.exceeded",
+    category: "rate_limit",
+    title: "Rate limit exceeded",
+    description: "Applies token-bucket request limiting by IP, route, user, tenant, or API key identity.",
+    defaultSeverity: "medium",
+    defaultAction: "block",
+    confidence: 0.95,
+    enabledByDefault: true,
+    configPath: "rateLimit"
+  },
+  {
+    id: "request.large_payload",
+    category: "request",
+    title: "Large payload",
+    description: "Rejects requests whose declared body size exceeds the configured maximum.",
+    defaultSeverity: "medium",
+    defaultAction: "block",
+    confidence: 0.95,
+    enabledByDefault: true,
+    configPath: "rules.largePayload"
+  },
+  {
+    id: "signature.sqli",
+    category: "signature",
+    title: "SQL injection signature",
+    description: "Detects common SQL injection probes across URL and request body surfaces.",
+    defaultSeverity: "high",
+    defaultAction: "block",
+    confidence: 0.78,
+    enabledByDefault: true,
+    configPath: "rules.sqli",
+    falsePositiveNotes: "Replay suspected false positives from search/query-builder endpoints before strict enforcement."
+  },
+  {
+    id: "signature.xss",
+    category: "signature",
+    title: "XSS signature",
+    description: "Detects common script, event-handler, and javascript: payload probes.",
+    defaultSeverity: "high",
+    defaultAction: "block",
+    confidence: 0.76,
+    enabledByDefault: true,
+    configPath: "rules.xss"
+  },
+  {
+    id: "signature.path_traversal",
+    category: "signature",
+    title: "Path traversal signature",
+    description: "Detects traversal payloads, encoded traversal, and common sensitive filesystem paths.",
+    defaultSeverity: "critical",
+    defaultAction: "block",
+    confidence: 0.9,
+    enabledByDefault: true,
+    configPath: "rules.pathTraversal"
+  },
+  {
+    id: "signature.bad_user_agent",
+    category: "signature",
+    title: "Known scanner user-agent",
+    description: "Detects common scanner, mapper, and attack-tool user-agent strings.",
+    defaultSeverity: "medium",
+    defaultAction: "block",
+    confidence: 0.82,
+    enabledByDefault: true,
+    configPath: "rules.badUserAgents"
+  },
+  {
+    id: "signature.ssrf.metadata",
+    category: "signature",
+    title: "Cloud metadata SSRF probe",
+    description: "Detects attempts to reach cloud instance metadata services through application inputs.",
+    defaultSeverity: "high",
+    defaultAction: "block",
+    confidence: 0.91,
+    enabledByDefault: true,
+    configPath: "rules.packs",
+    packs: ["generic-web", "api", "strict-api"]
+  },
+  {
+    id: "signature.rce.shell",
+    category: "signature",
+    title: "Shell/RCE probe",
+    description: "Detects common shell command injection and remote code execution payloads.",
+    defaultSeverity: "high",
+    defaultAction: "block",
+    confidence: 0.84,
+    enabledByDefault: true,
+    configPath: "rules.packs",
+    packs: ["generic-web", "api", "strict-api"]
+  },
+  {
+    id: "signature.graphql.introspection",
+    category: "signature",
+    title: "GraphQL introspection probe",
+    description: "Detects GraphQL introspection strings that may expose schema details.",
+    defaultSeverity: "medium",
+    defaultAction: "block",
+    confidence: 0.68,
+    enabledByDefault: true,
+    configPath: "rules.packs",
+    packs: ["api", "strict-api"],
+    falsePositiveNotes: "GraphQL teams may intentionally allow introspection in development but disable it in production."
+  },
+  {
+    id: "signature.template_injection",
+    category: "signature",
+    title: "Template injection probe",
+    description: "Detects common server-side template injection and expression payloads.",
+    defaultSeverity: "high",
+    defaultAction: "block",
+    confidence: 0.79,
+    enabledByDefault: true,
+    configPath: "rules.packs",
+    packs: ["generic-web", "api", "strict-api"]
+  },
+  {
+    id: "signature.wordpress.probe",
+    category: "signature",
+    title: "WordPress probe",
+    description: "Detects WordPress-specific scans against non-WordPress or protected applications.",
+    defaultSeverity: "medium",
+    defaultAction: "block",
+    confidence: 0.83,
+    enabledByDefault: false,
+    configPath: "rules.packs",
+    packs: ["wordpress"]
+  },
+  {
+    id: "header.anomaly",
+    category: "header",
+    title: "Header anomaly",
+    description: "Detects missing Host headers, too many headers, oversized headers, and suspicious forwarding headers.",
+    defaultSeverity: "medium",
+    defaultAction: "block",
+    confidence: 0.82,
+    enabledByDefault: true,
+    configPath: "rules.headers"
+  },
+  {
+    id: "api.positive_security_violation",
+    category: "api",
+    title: "API positive security violation",
+    description: "Enforces JSON API expectations such as allowed content types, JSON depth, and JSON key count.",
+    defaultSeverity: "medium",
+    defaultAction: "block",
+    confidence: 0.86,
+    enabledByDefault: false,
+    configPath: "rules.api",
+    falsePositiveNotes: "Enable per API route after confirming expected request formats."
+  },
+  {
+    id: "content_type.mismatch",
+    category: "content_type",
+    title: "Content-Type/body mismatch",
+    description: "Detects JSON-looking bodies sent with non-JSON content types and body methods missing content type.",
+    defaultSeverity: "medium",
+    defaultAction: "block",
+    confidence: 0.8,
+    enabledByDefault: true,
+    configPath: "rules.contentType"
+  },
+  {
+    id: "bot.suspicious_request",
+    category: "bot",
+    title: "Suspicious bot request",
+    description: "Scores automation and bot signals from user-agent, headers, and browser-header consistency.",
+    defaultSeverity: "medium",
+    defaultAction: "block",
+    confidence: 0.72,
+    enabledByDefault: true,
+    configPath: "rules.bot",
+    falsePositiveNotes: "Tune allowUserAgents, ignorePaths, and minSignals before strict blocking."
+  },
+  {
+    id: "credential_stuffing.threshold_exceeded",
+    category: "credential_stuffing",
+    title: "Credential-stuffing threshold exceeded",
+    description: "Blocks identities that repeatedly fail login routes inside the configured time window.",
+    defaultSeverity: "high",
+    defaultAction: "block",
+    confidence: 0.88,
+    enabledByDefault: true,
+    configPath: "rules.credentialStuffing"
+  },
+  {
+    id: "honeypot.triggered",
+    category: "honeypot",
+    title: "Honeypot canary triggered",
+    description: "Detects trap paths, headers, and query parameters commonly touched by scanners.",
+    defaultSeverity: "critical",
+    defaultAction: "block",
+    confidence: 0.94,
+    enabledByDefault: true,
+    configPath: "rules.honeypot"
+  }
+];
+function getDhalRuleCatalog(config) {
+  return DHAL_RULE_CATALOG.map((entry) => ({
+    ...entry,
+    enabled: config ? isCatalogEntryEnabled(entry, config) : entry.enabledByDefault,
+    effectiveSeverity: config ? resolveCatalogSeverity(entry, config) : entry.defaultSeverity
+  }));
+}
+function findDhalRule(id) {
+  return DHAL_RULE_CATALOG.find((entry) => entry.id === id);
+}
+function resolveCatalogSeverity(entry, config) {
+  return config.policy.severity.rules[entry.id] ?? config.policy.severity.categories[entry.category] ?? entry.defaultSeverity;
+}
+function isCatalogEntryEnabled(entry, config) {
+  if (entry.packs && entry.packs.length > 0) {
+    return entry.packs.some((pack) => config.rules.packs.includes(pack));
+  }
+  switch (entry.id) {
+    case "ip.allow":
+      return config.ip.allow.length > 0;
+    case "ip.block":
+      return config.ip.block.length > 0;
+    case "ip.reputation":
+      return config.ip.reputation.enabled;
+    case "rate_limit.exceeded":
+      return config.rateLimit.enabled;
+    case "request.large_payload":
+      return config.rules.largePayload.enabled;
+    case "signature.sqli":
+      return config.rules.sqli;
+    case "signature.xss":
+      return config.rules.xss;
+    case "signature.path_traversal":
+      return config.rules.pathTraversal;
+    case "signature.bad_user_agent":
+      return config.rules.badUserAgents;
+    case "header.anomaly":
+      return config.rules.headers.enabled;
+    case "api.positive_security_violation":
+      return config.rules.api.enabled;
+    case "content_type.mismatch":
+      return config.rules.contentType.enabled;
+    case "bot.suspicious_request":
+      return config.rules.bot.enabled;
+    case "credential_stuffing.threshold_exceeded":
+      return config.rules.credentialStuffing.enabled;
+    case "honeypot.triggered":
+      return config.rules.honeypot.enabled;
+    default:
+      return entry.enabledByDefault;
+  }
+}
+
+// src/doctor.ts
+function runDhalDoctor(options = {}) {
+  const cwd = options.cwd ?? process.cwd();
+  const configPath = options.configPath ?? "dhal.json";
+  const resolvedConfigPath = (0, import_node_path4.resolve)(cwd, configPath);
+  const env = options.env ?? process.env;
+  const checks = [];
+  const nodeVersion = process.version;
+  checkNodeVersion(checks, nodeVersion);
+  const configExists = (0, import_node_fs4.existsSync)(resolvedConfigPath);
+  if (configExists) {
+    checks.push({ level: "ok", code: "config.present", message: `Found ${configPath}.` });
+  } else {
+    checks.push({
+      level: "warning",
+      code: "config.missing",
+      message: `No ${configPath} found. Dhal will use defaults if loaded from this directory.`,
+      hint: "Run `npx dhal init` to create a reviewable config file."
+    });
+  }
+  let config;
+  try {
+    config = loadDhalConfig(resolvedConfigPath);
+    checks.push({ level: "ok", code: "config.valid", message: "Config loads and validates." });
+  } catch (error) {
+    checks.push({
+      level: "error",
+      code: "config.invalid",
+      message: error instanceof Error ? error.message : String(error),
+      hint: "Run `npx dhal test-config` after fixing the config."
+    });
+    return {
+      ok: false,
+      packageName: "@rokadhq/dhal",
+      cli: "dhal",
+      configPath: resolvedConfigPath,
+      configExists,
+      nodeVersion,
+      checks
+    };
+  }
+  if (config.mode === "monitor") {
+    checks.push({
+      level: "warning",
+      code: "mode.monitor",
+      message: "Global mode is monitor; Dhal will not actively block unless a route overrides mode.",
+      hint: "Start this way intentionally, then move high-confidence routes to block mode."
+    });
+  } else if (config.mode === "off") {
+    checks.push({ level: "error", code: "mode.off", message: "Global mode is off." });
+  } else {
+    checks.push({ level: "ok", code: "mode.enforcing", message: `Global mode is ${config.mode}.` });
+  }
+  if (config.runtime.onInternalError === "allow") {
+    checks.push({
+      level: "ok",
+      code: "runtime.fail_open",
+      message: "Internal Dhal errors fail open by default.",
+      hint: "For hardened internal APIs, set runtime.onInternalError to block after validating false-positive behavior."
+    });
+  } else {
+    checks.push({ level: "warning", code: "runtime.fail_closed", message: "Internal Dhal errors are configured to fail closed." });
+  }
+  if (config.runtime.bypass.enabled) {
+    checks.push({ level: "ok", code: "runtime.bypass", message: `Runtime bypass is enabled for ${config.runtime.bypass.paths.length} paths and ${config.runtime.bypass.methods.length} methods.` });
+  }
+  if (config.observability.redaction.enabled) {
+    checks.push({ level: "ok", code: "privacy.redaction", message: `Observability redaction is enabled for ip=${config.observability.redaction.ip}, identity=${config.observability.redaction.identity}.` });
+  } else {
+    checks.push({
+      level: "warning",
+      code: "privacy.redaction_disabled",
+      message: "Observability redaction is disabled.",
+      hint: "Enable observability.redaction before sending logs/events to shared systems."
+    });
+  }
+  if (config.trustProxy) {
+    checks.push({ level: "ok", code: "proxy.trusted", message: "trustProxy is enabled for proxy-aware client IP extraction." });
+  } else {
+    checks.push({
+      level: "warning",
+      code: "proxy.not_trusted",
+      message: "trustProxy is disabled.",
+      hint: "Enable only when your app is behind a trusted proxy/CDN that sets forwarding headers correctly."
+    });
+  }
+  if (config.rateLimit.enabled && config.rateLimit.store === "memory") {
+    checks.push({
+      level: "warning",
+      code: "rate_limit.memory_store",
+      message: "Rate limiting uses the in-memory store.",
+      hint: "Use Redis/Valkey for multi-instance or serverless production deployments."
+    });
+  }
+  if (config.ip.reputation.enabled) {
+    const apiKey = env[config.ip.reputation.apiKeyEnv];
+    if (!apiKey) {
+      checks.push({
+        level: config.ip.reputation.mode === "blocking" ? "error" : "warning",
+        code: "ip_reputation.missing_key",
+        message: `IP reputation is enabled but ${config.ip.reputation.apiKeyEnv} is not set.`,
+        hint: "Set the environment variable or disable ip.reputation.enabled."
+      });
+    } else {
+      checks.push({ level: "ok", code: "ip_reputation.key_present", message: `Found ${config.ip.reputation.apiKeyEnv}.` });
+    }
+  }
+  if (config.observability.webhooks.enabled) {
+    if (config.observability.webhooks.urls.length === 0) {
+      checks.push({ level: "error", code: "webhooks.no_targets", message: "Webhooks are enabled but no URLs are configured." });
+    }
+    if (!config.observability.webhooks.signing.enabled) {
+      checks.push({
+        level: "warning",
+        code: "webhooks.unsigned",
+        message: "Webhook alerts are enabled without HMAC signing.",
+        hint: "Enable observability.webhooks.signing before sending alerts to shared infrastructure."
+      });
+    } else if (!env[config.observability.webhooks.signing.secretEnv]) {
+      checks.push({
+        level: "error",
+        code: "webhooks.missing_secret",
+        message: `Webhook signing is enabled but ${config.observability.webhooks.signing.secretEnv} is not set.`
+      });
+    } else {
+      checks.push({ level: "ok", code: "webhooks.signing_ready", message: "Webhook signing secret is present." });
+    }
+  }
+  if (config.observability.otel.enabled) {
+    checks.push({ level: "ok", code: "otel.enabled", message: "OpenTelemetry emission is enabled." });
+  }
+  const ci = evaluateDhalCiPolicy(config);
+  for (const finding of ci.findings) {
+    checks.push({
+      level: finding.level === "error" ? "error" : "warning",
+      code: `ci.${finding.code}`,
+      message: finding.message
+    });
+  }
+  const enabledRules = getDhalRuleCatalog(config).filter((rule) => rule.enabled).length;
+  checks.push({ level: "ok", code: "rules.catalog", message: `${enabledRules} rule catalog entries are enabled by the current config.` });
+  return {
+    ok: checks.every((check) => check.level !== "error"),
+    packageName: "@rokadhq/dhal",
+    cli: "dhal",
+    configPath: resolvedConfigPath,
+    configExists,
+    nodeVersion,
+    checks,
+    summary: {
+      mode: config.mode,
+      routeProfiles: Object.keys(config.routes).length,
+      enabledRules,
+      rateLimitStore: config.rateLimit.store,
+      webhooksEnabled: config.observability.webhooks.enabled,
+      otelEnabled: config.observability.otel.enabled,
+      ipReputationEnabled: config.ip.reputation.enabled,
+      runtimeBypassEnabled: config.runtime.bypass.enabled,
+      onInternalError: config.runtime.onInternalError,
+      redactionEnabled: config.observability.redaction.enabled
+    },
+    ci
+  };
+}
+function checkNodeVersion(checks, nodeVersion) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)/.exec(nodeVersion);
+  if (!match) {
+    checks.push({ level: "warning", code: "node.unknown", message: `Could not parse Node version ${nodeVersion}.` });
+    return;
+  }
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  const patch = Number(match[3]);
+  const supported = major > 18 || major === 18 && (minor > 18 || minor === 18 && patch >= 0);
+  if (supported) {
+    checks.push({ level: "ok", code: "node.supported", message: `Node ${nodeVersion} satisfies Dhal's runtime requirement.` });
+  } else {
+    checks.push({ level: "error", code: "node.unsupported", message: `Node ${nodeVersion} is below Dhal's minimum supported runtime.` });
+  }
+}
+
+// src/presets.ts
+var import_node_fs5 = require("fs");
+var import_node_path5 = require("path");
+var DHAL_PRESETS = {
+  starter: {
+    name: "starter",
+    title: "Starter monitor-mode policy",
+    description: "Safe default policy for first installs. Detects and logs security decisions without blocking by default.",
+    intendedFor: ["local setup", "first production dry-run", "new Dhal installations"],
+    notes: [
+      "Starts in monitor mode so teams can review would-block events before enforcement.",
+      "Uses the in-memory rate-limit store; switch to Redis/Valkey for multi-instance production.",
+      "Keeps IP reputation, webhooks, and OTel disabled until credentials/endpoints are configured."
+    ],
+    config: {
+      mode: "monitor",
+      trustProxy: false,
+      rateLimit: {
+        enabled: true,
+        store: "memory",
+        keyBy: ["ip", "route"],
+        default: { windowSeconds: 60, max: 120 }
+      },
+      rules: {
+        packs: ["generic-web", "api"],
+        api: { enabled: false },
+        bot: { enabled: true },
+        honeypot: { enabled: true },
+        credentialStuffing: { enabled: true }
+      }
+    }
+  },
+  "api-production": {
+    name: "api-production",
+    title: "Production API baseline",
+    description: "Production-oriented baseline for JSON APIs running behind a trusted proxy/CDN with Redis/Valkey available.",
+    intendedFor: ["REST APIs", "SaaS APIs", "multi-instance Node deployments"],
+    notes: [
+      "Assumes a trusted proxy/CDN provides forwarding headers; validate your edge before enabling trustProxy.",
+      "Uses Redis/Valkey for distributed rate limiting but does not create the Redis client for you.",
+      "Keeps global mode monitor while enforcing high-confidence login and private API route profiles."
+    ],
+    config: {
+      mode: "monitor",
+      trustProxy: true,
+      rateLimit: {
+        enabled: true,
+        store: "redis",
+        keyBy: ["ip", "route"],
+        default: { windowSeconds: 60, max: 300 }
+      },
+      rules: {
+        packs: ["generic-web", "api", "auth"],
+        api: { enabled: true, requireJsonContentType: true, maxJsonDepth: 24, maxJsonKeys: 800 },
+        headers: { enabled: true, blockConflictingForwardingHeaders: true },
+        contentType: { enabled: true, blockMissingOnBodyMethods: true, blockJsonMismatch: true },
+        bot: {
+          enabled: true,
+          scoreThreshold: 75,
+          falsePositiveControls: {
+            minSignals: 2,
+            skipStaticAssets: true,
+            ignorePaths: ["/healthz", "/health", "/readyz", "/favicon.ico"],
+            ignorePrivateIps: true
+          }
+        },
+        credentialStuffing: { enabled: true, maxFailures: 6, windowSeconds: 300, keyBy: ["ip", "route", "userAgent"] }
+      },
+      routes: {
+        "/api/login": {
+          mode: "block",
+          tags: ["auth", "login"],
+          rateLimit: { enabled: true, windowSeconds: 60, max: 10, keyBy: ["ip", "route"] },
+          rules: {
+            credentialStuffing: { enabled: true, maxFailures: 5, windowSeconds: 300, keyBy: ["ip", "route", "userAgent"] },
+            bot: { enabled: true }
+          },
+          response: { blockStatusCode: 429, message: "Too many login attempts" }
+        },
+        "/api/private/*": {
+          mode: "block",
+          tags: ["api", "private"],
+          rateLimit: { enabled: true, windowSeconds: 60, max: 120, keyBy: ["tenantId", "apiKeyId", "route"] },
+          rules: {
+            api: { enabled: true },
+            contentType: { enabled: true }
+          }
+        }
+      },
+      observability: {
+        otel: { enabled: true, serviceName: "dhal-protected-api", emitAllowedRequests: false },
+        webhooks: {
+          enabled: false,
+          signing: { enabled: true, secretEnv: "DHAL_WEBHOOK_SECRET" }
+        }
+      },
+      policy: {
+        ci: {
+          failOnModes: ["off"],
+          requireWebhookSigning: true,
+          requireNonMonitorRouteForRules: ["credential_stuffing.threshold_exceeded", "rate_limit.exceeded"],
+          disallowExpiredSuppressions: true
+        }
+      }
+    }
+  },
+  "auth-hardened": {
+    name: "auth-hardened",
+    title: "Auth and credential-stuffing hardening",
+    description: "Route profiles and behavior controls for login, session, and authentication surfaces.",
+    intendedFor: ["login APIs", "session endpoints", "password flows", "admin auth"],
+    notes: [
+      "Blocks high-confidence login abuse while leaving the rest of the app in monitor mode.",
+      "Uses response-outcome learning from 401/403/400 responses.",
+      "Tune keyBy to match your auth model; API-key and tenant-aware apps should include apiKeyId/tenantId."
+    ],
+    config: {
+      mode: "monitor",
+      rules: {
+        packs: ["generic-web", "auth"],
+        credentialStuffing: {
+          enabled: true,
+          loginPathPatterns: ["/api/login", "/login", "/auth/login", "/api/auth/*"],
+          failureStatusCodes: [400, 401, 403],
+          windowSeconds: 300,
+          maxFailures: 5,
+          keyBy: ["ip", "route", "userAgent"]
+        },
+        bot: { enabled: true, scoreThreshold: 70 },
+        honeypot: { enabled: true }
+      },
+      routes: {
+        "/api/login": {
+          mode: "block",
+          tags: ["auth", "login"],
+          rateLimit: { enabled: true, windowSeconds: 60, max: 8, keyBy: ["ip", "route"] },
+          response: { blockStatusCode: 429, message: "Too many login attempts" }
+        },
+        "/auth/*": {
+          mode: "block",
+          tags: ["auth"],
+          rateLimit: { enabled: true, windowSeconds: 60, max: 30, keyBy: ["ip", "route"] }
+        }
+      }
+    }
+  },
+  "strict-json-api": {
+    name: "strict-json-api",
+    title: "Strict JSON API policy",
+    description: "Tighter positive-security policy for APIs that should only receive JSON request bodies.",
+    intendedFor: ["internal APIs", "machine-to-machine APIs", "strict JSON services"],
+    notes: [
+      "Enables positive security checks for methods with bodies.",
+      "Can create false positives for multipart uploads or form endpoints; add route-specific exceptions before block mode.",
+      "Best paired with replay fixtures before broad production enforcement."
+    ],
+    config: {
+      mode: "monitor",
+      rules: {
+        packs: ["generic-web", "api", "strict-api"],
+        api: {
+          enabled: true,
+          requireJsonContentType: true,
+          allowedContentTypes: ["application/json", "application/problem+json", "application/ld+json"],
+          methodsWithBody: ["POST", "PUT", "PATCH"],
+          maxJsonDepth: 18,
+          maxJsonKeys: 500
+        },
+        contentType: {
+          enabled: true,
+          blockMissingOnBodyMethods: true,
+          blockJsonMismatch: true,
+          allowedJsonMimeTypes: ["application/json", "application/problem+json", "application/ld+json"]
+        },
+        headers: { enabled: true, maxHeaderCount: 80, maxHeaderBytes: 12288 }
+      },
+      routes: {
+        "/api/*": {
+          mode: "block",
+          tags: ["api", "json"],
+          rules: {
+            api: { enabled: true },
+            contentType: { enabled: true },
+            headers: { enabled: true }
+          }
+        },
+        "/api/upload": {
+          mode: "monitor",
+          tags: ["api", "upload", "review-required"],
+          rules: {
+            api: { enabled: false },
+            contentType: { blockMissingOnBodyMethods: false }
+          }
+        }
+      }
+    }
+  },
+  "behind-proxy": {
+    name: "behind-proxy",
+    title: "Trusted proxy/CDN deployment",
+    description: "Baseline for apps running behind a correctly configured CDN, ingress, reverse proxy, or load balancer.",
+    intendedFor: ["Cloudflare", "AWS ALB", "nginx", "Envoy", "Kubernetes ingress"],
+    notes: [
+      "Only enable trustProxy when all direct origin traffic is blocked or forwarding headers are controlled.",
+      "Turns on conflicting forwarding-header detection to reduce spoofing risk.",
+      "Keeps enforcement in monitor mode until your deployment topology is verified."
+    ],
+    config: {
+      mode: "monitor",
+      trustProxy: true,
+      rules: {
+        headers: {
+          enabled: true,
+          requireHostHeader: true,
+          maxHeaderCount: 96,
+          maxHeaderBytes: 16384,
+          blockConflictingForwardingHeaders: true,
+          suspiciousHeaders: ["x-forwarded-host", "x-original-url", "x-rewrite-url", "x-real-ip"]
+        },
+        bot: {
+          falsePositiveControls: {
+            minSignals: 2,
+            skipStaticAssets: true,
+            ignorePaths: ["/healthz", "/health", "/readyz", "/favicon.ico"],
+            ignorePrivateIps: true
+          }
+        }
+      }
+    }
+  },
+  observability: {
+    name: "observability",
+    title: "Telemetry and signed alerts",
+    description: "Enables OpenTelemetry and signed webhook-ready event settings without changing enforcement mode.",
+    intendedFor: ["SIEM pipelines", "incident workflows", "Anubase security dashboards", "OTel collectors"],
+    notes: [
+      "Webhook targets stay empty by default; add URLs in dhal.json or through deployment templating.",
+      "Signing is enabled and expects DHAL_WEBHOOK_SECRET at runtime.",
+      "Allowed-request emission remains off to keep telemetry volume controlled."
+    ],
+    config: {
+      observability: {
+        logs: { enabled: true, format: "json" },
+        events: { enabled: true },
+        otel: { enabled: true, serviceName: "dhal-protected-app", emitAllowedRequests: false },
+        webhooks: {
+          enabled: true,
+          urls: [],
+          emitAllowedRequests: false,
+          signing: {
+            enabled: true,
+            secretEnv: "DHAL_WEBHOOK_SECRET",
+            signatureHeader: "x-dhal-signature",
+            timestampHeader: "x-dhal-timestamp",
+            idHeader: "x-dhal-event-id"
+          }
+        }
+      }
+    }
+  }
+};
+function listDhalPresets() {
+  return Object.values(DHAL_PRESETS).map(({ config: _config, ...summary }) => summary);
+}
+function getDhalPreset(name) {
+  if (!isPresetName(name)) {
+    throw new Error(`Unknown Dhal preset: ${name}. Run \`dhal presets\` to list available presets.`);
+  }
+  return DHAL_PRESETS[name];
+}
+function applyDhalPreset(config, presetName) {
+  const preset = getDhalPreset(presetName);
+  return deepMerge(defaultConfig, config, preset.config);
+}
+function isPresetName(name) {
+  return Object.prototype.hasOwnProperty.call(DHAL_PRESETS, name);
+}
+
+// src/report.ts
+function runDhalSupportReport(options = {}) {
+  const configPath = options.configPath ?? "dhal.json";
+  const env = options.env ?? process.env;
+  const config = loadDhalConfig(configPath);
+  const doctor = runDhalDoctor({ configPath, env });
+  const ci = evaluateDhalCiPolicy(config);
+  const enabledRules = getDhalRuleCatalog(config).filter((rule) => rule.enabled);
+  return {
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    packageName: "@rokadhq/dhal",
+    cli: "dhal",
+    configPath,
+    runtime: {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch
+    },
+    config: {
+      mode: config.mode,
+      trustProxy: config.trustProxy,
+      routeProfiles: Object.keys(config.routes).length,
+      rateLimitStore: config.rateLimit.store,
+      ipReputationEnabled: config.ip.reputation.enabled,
+      otelEnabled: config.observability.otel.enabled,
+      webhooksEnabled: config.observability.webhooks.enabled,
+      redactionEnabled: config.observability.redaction.enabled,
+      runtimeBypassEnabled: config.runtime.bypass.enabled,
+      onInternalError: config.runtime.onInternalError
+    },
+    env: {
+      abuseIpDbKeyPresent: Boolean(env[config.ip.reputation.apiKeyEnv]),
+      webhookSecretPresent: Boolean(env[config.observability.webhooks.signing.secretEnv])
+    },
+    doctor,
+    ci,
+    enabledRules
+  };
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   AbuseIpDbProvider,
   CompositeDhalTelemetry,
+  DHAL_PRESETS,
+  DHAL_RULE_CATALOG,
   DhalEventBus,
   IpReputationCache,
   MemoryRateLimitStore,
@@ -2993,17 +3948,24 @@ function redactScan(scan) {
   RedisRateLimitStore,
   RedisSignalStore,
   WebhookDhalTelemetry,
+  applyDhalPreset,
   applyPolicyToDecision,
   buildCredentialKey,
   createAbuseIpDbProviderFromConfig,
   createDhal,
   defaultConfig,
   evaluateDhalCiPolicy,
+  findDhalRule,
   getDhalConfigJsonSchema,
+  getDhalPreset,
+  getDhalRuleCatalog,
   isCredentialRoute,
+  listDhalPresets,
   loadDhalConfig,
   resolveSeverity,
   runDhalAutosetup,
+  runDhalDoctor,
+  runDhalSupportReport,
   severityAtLeast,
   shouldEmitSecurityEvent
 });

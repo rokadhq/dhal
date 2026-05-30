@@ -1,6 +1,6 @@
-export { a as DhalEventBus, c as createDhal } from './engine-B8uEuAgQ.cjs';
-import { f as DhalConfig, P as PartialDeep, R as RateLimitStore, r as DhalRateLimitConfig, F as IpReputationResult, E as DhalTelemetry, z as DhalSecurityEvent, j as DhalDecision, s as DhalRequest, u as DhalRouteProfile, B as DhalSeverity, h as DhalCredentialStuffingKey } from './types-CX1y5ozy.cjs';
-export { D as DhalAction, a as DhalApiPositiveSecurityConfig, b as DhalAuditExplanation, c as DhalAutosetupOptions, d as DhalAutosetupProvider, e as DhalBotRuleConfig, g as DhalContentTypeConfig, i as DhalCredentialStuffingRuleConfig, k as DhalHeaderAnomalyConfig, l as DhalHeaders, m as DhalHoneypotRuleConfig, n as DhalIdentityKey, o as DhalMode, p as DhalOptions, q as DhalPolicyConfig, t as DhalResponseOutcome, v as DhalRuleConfig, w as DhalRulePackName, x as DhalRuleSuppression, y as DhalSamplingConfig, A as DhalSecuritySignal, C as DhalSignalStore, I as IpReputationProvider } from './types-CX1y5ozy.cjs';
+export { a as DhalEventBus, c as createDhal } from './engine-CEH7vEA-.cjs';
+import { f as DhalConfig, P as PartialDeep, R as RateLimitStore, r as DhalRateLimitConfig, F as IpReputationResult, E as DhalTelemetry, z as DhalSecurityEvent, j as DhalDecision, s as DhalRequest, u as DhalRouteProfile, B as DhalSeverity, h as DhalCredentialStuffingKey } from './types-6Dn0mDWH.cjs';
+export { D as DhalAction, a as DhalApiPositiveSecurityConfig, b as DhalAuditExplanation, c as DhalAutosetupOptions, d as DhalAutosetupProvider, e as DhalBotRuleConfig, g as DhalContentTypeConfig, i as DhalCredentialStuffingRuleConfig, k as DhalHeaderAnomalyConfig, l as DhalHeaders, m as DhalHoneypotRuleConfig, n as DhalIdentityKey, o as DhalMode, p as DhalOptions, q as DhalPolicyConfig, t as DhalResponseOutcome, v as DhalRuleConfig, w as DhalRulePackName, x as DhalRuleSuppression, y as DhalSamplingConfig, A as DhalSecuritySignal, C as DhalSignalStore, I as IpReputationProvider } from './types-6Dn0mDWH.cjs';
 export { getDhalConfigJsonSchema } from './config-schema.cjs';
 export { MemorySignalStore } from './stores/memory-signal-store.cjs';
 export { RedisLikeClient, RedisRateLimitStore } from './stores/redis-rate-limit-store.cjs';
@@ -8,7 +8,11 @@ export { RedisSignalLikeClient, RedisSignalStore } from './stores/redis-signal-s
 export { AbuseIpDbProvider, createAbuseIpDbProviderFromConfig } from './reputation/abuseipdb.cjs';
 export { OpenTelemetryDhalTelemetry } from './telemetry/otel.cjs';
 export { WebhookDhalTelemetry } from './telemetry/webhook.cjs';
+export { D as DhalDoctorFinding, a as DhalDoctorOptions, b as DhalDoctorResult, e as evaluateDhalCiPolicy, r as runDhalDoctor } from './doctor-CecDylF1.cjs';
 export { runDhalAutosetup } from './autosetup/index.cjs';
+export { DHAL_RULE_CATALOG, DhalRuleCatalogEntry, DhalRuleCatalogRow, findDhalRule, getDhalRuleCatalog } from './rules/catalog.cjs';
+export { DHAL_PRESETS, DhalPreset, DhalPresetName, DhalPresetSummary, applyDhalPreset, getDhalPreset, listDhalPresets } from './presets.cjs';
+export { DhalSupportReport, DhalSupportReportOptions, runDhalSupportReport } from './report.cjs';
 import 'node:events';
 
 declare const defaultConfig: DhalConfig;
@@ -40,17 +44,6 @@ declare class CompositeDhalTelemetry implements DhalTelemetry {
     recordDecision(event: DhalSecurityEvent): void;
 }
 
-type DhalCiFinding = {
-    level: "error" | "warning";
-    code: string;
-    message: string;
-};
-type DhalCiResult = {
-    ok: boolean;
-    findings: DhalCiFinding[];
-};
-declare function evaluateDhalCiPolicy(config: DhalConfig): DhalCiResult;
-
 type DhalPolicyEvaluationContext = {
     req: DhalRequest;
     config: DhalConfig;
@@ -66,4 +59,4 @@ declare function severityAtLeast(actual: DhalSeverity, minimum: DhalSeverity): b
 declare function isCredentialRoute(req: DhalRequest, config: DhalConfig): boolean;
 declare function buildCredentialKey(req: DhalRequest, keyBy: DhalCredentialStuffingKey[]): string;
 
-export { CompositeDhalTelemetry, DhalConfig, DhalCredentialStuffingKey, DhalDecision, DhalRateLimitConfig, DhalRequest, DhalRouteProfile, DhalSecurityEvent, DhalSeverity, DhalTelemetry, IpReputationCache, IpReputationResult, MemoryRateLimitStore, RateLimitStore, applyPolicyToDecision, buildCredentialKey, defaultConfig, evaluateDhalCiPolicy, isCredentialRoute, loadDhalConfig, resolveSeverity, severityAtLeast, shouldEmitSecurityEvent };
+export { CompositeDhalTelemetry, DhalConfig, DhalCredentialStuffingKey, DhalDecision, DhalRateLimitConfig, DhalRequest, DhalRouteProfile, DhalSecurityEvent, DhalSeverity, DhalTelemetry, IpReputationCache, IpReputationResult, MemoryRateLimitStore, RateLimitStore, applyPolicyToDecision, buildCredentialKey, defaultConfig, isCredentialRoute, loadDhalConfig, resolveSeverity, severityAtLeast, shouldEmitSecurityEvent };

@@ -1,4 +1,4 @@
-import { C as DhalSignalStore } from '../types-CX1y5ozy.cjs';
+import { C as DhalSignalStore } from '../types-6Dn0mDWH.cjs';
 
 declare class MemorySignalStore implements DhalSignalStore {
     private readonly buckets;

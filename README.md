@@ -6,9 +6,21 @@ It sits inside the application request path and provides deterministic controls 
 
 Dhal complements CDN/edge/network WAFs. It does not replace upstream DDoS or bandwidth-exhaustion protection.
 
-## v0.8 focus
+## v0.11 alpha-public focus
 
-Dhal v0.8 is the npm-publish-ready release. It keeps the v0.7 rule-quality and setup automation features, and adds package metadata, publish checks, release docs, security policy, license file, and provenance-ready npm configuration.
+Dhal v0.11 alpha-public hardens the package for real public usage. It adds runtime failure policy controls, health-check/preflight bypasses, privacy-first observability redaction, support-report generation, and stronger diagnostics for production installs.
+
+The package remains pre-1.0. Treat the public API as usable but not frozen. Production users should pin versions, start in `monitor`, use `dhal replay` for false-positive regression tests, and move specific routes to `block` only after review.
+
+## v0.10 focus
+
+Dhal v0.10 is the production-onboarding release. It adds reviewable config presets through `dhal presets`, public preset APIs, and safer upgrade paths from monitor mode to route-level blocking. The goal is to help teams move from “installed” to “production-shaped policy” without hiding behavior behind magic defaults.
+
+## v0.9 focus
+
+Dhal v0.9 standardized the scoped package identity `@rokadhq/dhal`, added `dhal doctor` for production-readiness diagnostics, exposed a built-in rule catalog through `dhal rules`, and added public API exports for rule/catalog and doctor tooling.
+
+Dhal remains product-named **Dhal**. The npm package is `@rokadhq/dhal`, the CLI command is `dhal`, and the config file is `dhal.json`.
 
 ## v0.7 feature baseline
 
@@ -23,6 +35,19 @@ Dhal v0.7 added rule-quality and setup automation:
 - IPv4 and IPv6 CIDR allow/block support
 - false-positive replay harness through `dhal replay`
 - AI-assisted autosetup through `dhal autosetup`, powered by the optional Vercel AI SDK `ai` package
+
+
+## Publish readiness
+
+This package includes a publish checklist and release scripts:
+
+```bash
+npm run verify:publish
+npm run pack:dry
+npm publish --tag next --provenance
+```
+
+See `PUBLISHING.md` before the first npm publish.
 
 ## Install
 
@@ -42,7 +67,7 @@ Or use Vercel AI Gateway with the `ai` package only, depending on your AI SDK se
 
 ```ts
 import express from "express";
-import { dhal } from "dhal/express";
+import { dhal } from "@rokadhq/dhal/express";
 
 const app = express();
 
@@ -62,7 +87,7 @@ The Express adapter records response status codes after the request finishes. Th
 
 ```ts
 import Fastify from "fastify";
-import { dhalFastify } from "dhal/fastify";
+import { dhalFastify } from "@rokadhq/dhal/fastify";
 
 const app = Fastify();
 
@@ -77,7 +102,7 @@ await app.listen({ port: 3000 });
 
 ```ts
 import http from "node:http";
-import { createNodeHttpDhal } from "dhal/node-http";
+import { createNodeHttpDhal } from "@rokadhq/dhal/node-http";
 
 const dhal = createNodeHttpDhal();
 
@@ -105,43 +130,108 @@ Validate config:
 npx dhal test-config
 ```
 
-Run CI posture checks:
+Run production-readiness diagnostics:
 
 ```bash
-npx dhal ci
-npx dhal ci --json
+npx dhal doctor
 ```
 
-Export JSON schema:
+List the effective rule catalog:
 
 ```bash
-npx dhal schema dhal.schema.json
+npx dhal rules
 ```
 
-Migrate an older config to the current merged schema:
+Generate a redacted support report for debugging installs:
 
 ```bash
-npx dhal migrate dhal.json dhal.migrated.json
+npx dhal report --output dhal.report.json
 ```
 
-Explain global and route-level controls:
+List production-ready config presets:
 
 ```bash
-npx dhal explain-config
+npx dhal presets
 ```
 
-Simulate requests, including optional `responseStatus` fields that feed credential-stuffing signals:
+Inspect a preset before applying it:
 
 ```bash
-npx dhal simulate fixtures.simulation.json
-npx dhal simulate fixtures.simulation.json --json
+npx dhal presets show api-production
 ```
 
-Replay false-positive fixtures:
+Write a preset-merged config to a review file:
 
 ```bash
-npx dhal replay fixtures.replay.json
-npx dhal replay fixtures.replay.json --fail-on-block
+npx dhal presets apply api-production --output dhal.production.json
+```
+
+Apply a preset directly to `dhal.json`:
+
+```bash
+npx dhal presets apply auth-hardened --write
+```
+## Runtime safety controls
+
+Dhal defaults to availability-first behavior for alpha/public usage:
+
+```json
+{
+  "runtime": {
+    "onInternalError": "allow",
+    "internalErrorStatusCode": 500,
+    "maxInspectionMs": 25,
+    "bypass": {
+      "enabled": true,
+      "paths": ["/health", "/healthz", "/ready", "/readyz", "/live", "/livez"],
+      "methods": ["OPTIONS"]
+    }
+  }
+}
+```
+
+For hardened internal APIs, you can set `runtime.onInternalError` to `block`, but test that with `dhal simulate`, `dhal replay`, and `dhal doctor` before rollout.
+
+## Privacy-first observability
+
+Security logs and events are useful, but they can contain sensitive operational data. Dhal now redacts observability payloads by default:
+
+```json
+{
+  "observability": {
+    "redaction": {
+      "enabled": true,
+      "ip": "mask",
+      "identity": "hash",
+      "userAgent": "full"
+    }
+  }
+}
+```
+
+This affects Dhal security events, logs, telemetry payloads, and support reports. The request path and route are preserved for debugging; IP and identity keys are masked or hashed depending on config.
+
+## Config presets
+
+Presets are named, reviewable config overlays. They do not replace `dhal.json`; they help create a safer starting policy for common deployment shapes.
+
+Available presets:
+
+- `starter` — monitor-mode baseline for first installs
+- `api-production` — JSON API baseline with Redis/Valkey, trusted proxy assumptions, OTel-ready settings, and enforcing route profiles
+- `auth-hardened` — login/auth route hardening and credential-stuffing controls
+- `strict-json-api` — positive-security model for APIs that should only accept JSON request bodies
+- `behind-proxy` — deployment baseline for CDN/reverse-proxy/ingress setups
+- `observability` — OpenTelemetry and signed-webhook-ready telemetry settings
+
+Programmatic usage:
+
+```ts
+import { applyDhalPreset, getDhalPreset, listDhalPresets } from "@rokadhq/dhal";
+
+const presets = listDhalPresets();
+const apiPreset = getDhalPreset("api-production");
+const config = applyDhalPreset({}, apiPreset.name);
 ```
 
 ## AI-assisted autosetup

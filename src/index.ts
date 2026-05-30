@@ -13,6 +13,9 @@ export { OpenTelemetryDhalTelemetry } from "./telemetry/otel.js";
 export { WebhookDhalTelemetry } from "./telemetry/webhook.js";
 export { evaluateDhalCiPolicy } from "./ci.js";
 export { runDhalAutosetup } from "./autosetup/index.js";
+export { runDhalDoctor } from "./doctor.js";
+export { DHAL_RULE_CATALOG, findDhalRule, getDhalRuleCatalog } from "./rules/catalog.js";
+export { DHAL_PRESETS, applyDhalPreset, getDhalPreset, listDhalPresets } from "./presets.js";
 export { applyPolicyToDecision, resolveSeverity, shouldEmitSecurityEvent, severityAtLeast } from "./policy.js";
 export { buildCredentialKey, isCredentialRoute } from "./rules/credential-stuffing-rule.js";
 export type {
@@ -53,3 +56,8 @@ export type {
 } from "./types.js";
 export type { RedisLikeClient } from "./stores/redis-rate-limit-store.js";
 export type { RedisSignalLikeClient } from "./stores/redis-signal-store.js";
+export type { DhalRuleCatalogEntry, DhalRuleCatalogRow } from "./rules/catalog.js";
+export type { DhalDoctorFinding, DhalDoctorOptions, DhalDoctorResult } from "./doctor.js";
+export type { DhalPreset, DhalPresetName, DhalPresetSummary } from "./presets.js";
+
+export { runDhalSupportReport, type DhalSupportReport, type DhalSupportReportOptions } from "./report.js";

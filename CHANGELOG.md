@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.11.0-alpha.0 - Alpha-public hardening
+
+- Added `runtime` config for internal-error behavior, inspection budget metadata, and health/preflight bypasses.
+- Added availability-first default `runtime.onInternalError: "allow"` with optional fail-closed behavior for hardened APIs.
+- Added `observability.redaction` config for masked/hashed event data.
+- Added `dhal report` for redacted support/debug reports.
+- Added public `runDhalSupportReport` API and `@rokadhq/dhal/report` export path.
+- Extended `dhal doctor` and `dhal ci` with runtime and privacy posture checks.
+- Added alpha-public usage notes and additional regression tests.
+
+## 0.10.0
+
+- Added `dhal presets` CLI for listing, inspecting, and applying reviewable config presets.
+- Added built-in presets: `starter`, `api-production`, `auth-hardened`, `strict-json-api`, `behind-proxy`, and `observability`.
+- Added public preset API exports: `listDhalPresets`, `getDhalPreset`, `applyDhalPreset`, and `DHAL_PRESETS`.
+- Added `@rokadhq/dhal/presets` export path.
+- Updated README with production-onboarding guidance and preset examples.
+- Kept package identity scoped as `@rokadhq/dhal`, CLI as `dhal`, and config as `dhal.json`.
+
+## 0.9.0 - Adoption and operations tooling
+
+- Switched package identity to the scoped npm package `@rokadhq/dhal` while keeping the product name Dhal, CLI command `dhal`, and config file `dhal.json`.
+- Added `dhal doctor` for local production-readiness diagnostics covering Node runtime, config presence/validity, mode posture, proxy setup, rate-limit store, IP reputation env, webhook signing, CI findings, and enabled rule count.
+- Added `dhal rules` to list built-in rule catalog entries with effective enablement and severity under the current config.
+- Added public exports for `runDhalDoctor`, `getDhalRuleCatalog`, `findDhalRule`, and `DHAL_RULE_CATALOG`.
+- Added rule-catalog metadata for categories, confidence, default severity, config paths, and false-positive notes.
+- Added GitHub Actions workflows for npm publishing with `NPM_TOKEN` and optional GitHub Packages publication.
+- Added `.gitignore` tuned for the package repository.
+
+
 
 ## 0.8.2 - Local publishing provenance fix
 

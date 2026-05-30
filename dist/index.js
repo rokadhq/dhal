@@ -5,11 +5,29 @@ import {
   RedisSignalStore
 } from "./chunk-7AA6S7PN.js";
 import {
-  evaluateDhalCiPolicy
-} from "./chunk-RMYOAUND.js";
+  runDhalAutosetup
+} from "./chunk-2ZBPTWCA.js";
 import {
   getDhalConfigJsonSchema
-} from "./chunk-TBSX6UF4.js";
+} from "./chunk-RNHUOQPX.js";
+import {
+  DHAL_PRESETS,
+  applyDhalPreset,
+  getDhalPreset,
+  listDhalPresets
+} from "./chunk-7IT5NXY4.js";
+import {
+  runDhalSupportReport
+} from "./chunk-EWHY4K3Y.js";
+import {
+  evaluateDhalCiPolicy,
+  runDhalDoctor
+} from "./chunk-7YFUZ4GA.js";
+import {
+  DHAL_RULE_CATALOG,
+  findDhalRule,
+  getDhalRuleCatalog
+} from "./chunk-INPUNSI6.js";
 import {
   CompositeDhalTelemetry,
   DhalEventBus,
@@ -22,7 +40,14 @@ import {
   resolveSeverity,
   severityAtLeast,
   shouldEmitSecurityEvent
-} from "./chunk-UODWKQLZ.js";
+} from "./chunk-DHI46RN2.js";
+import {
+  WebhookDhalTelemetry
+} from "./chunk-BGMTMZGL.js";
+import {
+  AbuseIpDbProvider,
+  createAbuseIpDbProviderFromConfig
+} from "./chunk-X7PS5EQX.js";
 import {
   MemorySignalStore
 } from "./chunk-IRZXZAQ4.js";
@@ -30,22 +55,14 @@ import {
   OpenTelemetryDhalTelemetry
 } from "./chunk-JCY2QFLP.js";
 import {
-  WebhookDhalTelemetry
-} from "./chunk-BGMTMZGL.js";
-import {
-  runDhalAutosetup
-} from "./chunk-RXYJ2NVO.js";
-import {
   defaultConfig,
   loadDhalConfig
-} from "./chunk-JUWTNUCA.js";
-import {
-  AbuseIpDbProvider,
-  createAbuseIpDbProviderFromConfig
-} from "./chunk-X7PS5EQX.js";
+} from "./chunk-35HYGEBK.js";
 export {
   AbuseIpDbProvider,
   CompositeDhalTelemetry,
+  DHAL_PRESETS,
+  DHAL_RULE_CATALOG,
   DhalEventBus,
   IpReputationCache,
   MemoryRateLimitStore,
@@ -54,17 +71,24 @@ export {
   RedisRateLimitStore,
   RedisSignalStore,
   WebhookDhalTelemetry,
+  applyDhalPreset,
   applyPolicyToDecision,
   buildCredentialKey,
   createAbuseIpDbProviderFromConfig,
   createDhal,
   defaultConfig,
   evaluateDhalCiPolicy,
+  findDhalRule,
   getDhalConfigJsonSchema,
+  getDhalPreset,
+  getDhalRuleCatalog,
   isCredentialRoute,
+  listDhalPresets,
   loadDhalConfig,
   resolveSeverity,
   runDhalAutosetup,
+  runDhalDoctor,
+  runDhalSupportReport,
   severityAtLeast,
   shouldEmitSecurityEvent
 };

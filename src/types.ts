@@ -2,6 +2,10 @@ export type DhalMode = "off" | "monitor" | "block" | "strict";
 
 export type DhalAction = "allow" | "block" | "log";
 
+export type DhalInternalErrorAction = "allow" | "block";
+
+export type DhalRedactionMode = "none" | "mask" | "hash" | "omit";
+
 export type DhalSeverity = "info" | "low" | "medium" | "high" | "critical";
 
 export type DhalRulePackName = "generic-web" | "api" | "auth" | "wordpress" | "strict-api";
@@ -195,9 +199,28 @@ export type DhalPolicyConfig = {
   };
 };
 
+export type DhalRuntimeConfig = {
+  onInternalError: DhalInternalErrorAction;
+  internalErrorStatusCode: number;
+  maxInspectionMs: number;
+  bypass: {
+    enabled: boolean;
+    paths: string[];
+    methods: string[];
+  };
+};
+
+export type DhalObservabilityRedactionConfig = {
+  enabled: boolean;
+  ip: DhalRedactionMode;
+  identity: DhalRedactionMode;
+  userAgent: "full" | "omit";
+};
+
 export type DhalConfig = {
   mode: DhalMode;
   trustProxy: boolean;
+  runtime: DhalRuntimeConfig;
   identity: {
     headers: {
       userId: string[];
@@ -230,6 +253,7 @@ export type DhalConfig = {
   routes: Record<string, DhalRouteProfile>;
   policy: DhalPolicyConfig;
   observability: {
+    redaction: DhalObservabilityRedactionConfig;
     correlation: {
       headers: string[];
     };
@@ -295,7 +319,8 @@ export type DhalSecurityEvent = {
   eventId: string;
   timestamp: string;
   correlationId?: string | undefined;
-  request: Pick<DhalRequest, "method" | "path" | "ip" | "route" | "userId" | "tenantId" | "apiKeyId"> & {
+  request: Pick<DhalRequest, "method" | "path" | "route" | "userId" | "tenantId" | "apiKeyId"> & {
+    ip?: string | undefined;
     userAgent?: string | undefined;
   };
   decision: DhalDecision;

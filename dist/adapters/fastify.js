@@ -2,12 +2,12 @@ import {
   createDhal,
   extractClientIp,
   extractIdentity
-} from "../chunk-UODWKQLZ.js";
+} from "../chunk-DHI46RN2.js";
+import "../chunk-BGMTMZGL.js";
+import "../chunk-X7PS5EQX.js";
 import "../chunk-IRZXZAQ4.js";
 import "../chunk-JCY2QFLP.js";
-import "../chunk-BGMTMZGL.js";
-import "../chunk-JUWTNUCA.js";
-import "../chunk-X7PS5EQX.js";
+import "../chunk-35HYGEBK.js";
 
 // src/adapters/fastify.ts
 var normalizedRequestSymbol = /* @__PURE__ */ Symbol("dhal.normalizedRequest");

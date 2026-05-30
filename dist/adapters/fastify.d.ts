@@ -1,5 +1,5 @@
-import { D as DhalEngine } from '../engine-DZ0jvLHu.js';
-import { p as DhalOptions } from '../types-CX1y5ozy.js';
+import { D as DhalEngine } from '../engine-DVVdPwjH.js';
+import { p as DhalOptions } from '../types-6Dn0mDWH.js';
 import { FastifyPluginAsync } from 'fastify';
 import 'node:events';
 
