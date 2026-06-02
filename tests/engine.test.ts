@@ -483,3 +483,36 @@ describe("Dhal v0.11 alpha-public hardening", () => {
     expect(JSON.stringify(report)).not.toContain("secret");
   });
 });
+
+describe("Dhal v0.12 beta v1 readiness", () => {
+  it("exposes compatibility matrix for public package consumers", async () => {
+    const { getDhalCompatibilityMatrix } = await import("../src/compatibility.js");
+    const matrix = getDhalCompatibilityMatrix();
+
+    expect(matrix.packageName).toBe("@rokadhq/dhal");
+    expect(matrix.version).toBe("0.12.0-beta.0");
+    expect(matrix.releaseChannel).toBe("beta");
+    expect(matrix.frameworks.some((entry) => entry.name === "Express" && entry.status === "supported")).toBe(true);
+  });
+
+  it("scores v1 readiness and reports production warnings", async () => {
+    const { runDhalReadiness } = await import("../src/readiness.js");
+    const result = runDhalReadiness({ configPath: "./missing-dhal-readiness-config.json", production: true, env: {} });
+
+    expect(result.packageName).toBe("@rokadhq/dhal");
+    expect(result.releaseChannel).toBe("beta");
+    expect(result.target).toBe("production");
+    expect(result.score).toBeLessThanOrEqual(100);
+    expect(result.checks.some((check) => check.code === "config.missing")).toBe(true);
+    expect(result.checks.some((check) => check.code === "mode.monitor")).toBe(true);
+  });
+
+  it("includes readiness metadata in support reports", async () => {
+    const { runDhalSupportReport } = await import("../src/report.js");
+    const report = runDhalSupportReport({ configPath: "./missing-dhal-report-v012-config.json", env: {} });
+
+    expect(report.version).toBe("0.12.0-beta.0");
+    expect(report.releaseChannel).toBe("beta");
+    expect(report.readiness.packageName).toBe("@rokadhq/dhal");
+  });
+});

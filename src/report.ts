@@ -1,6 +1,8 @@
 import { evaluateDhalCiPolicy } from "./ci.js";
 import { loadDhalConfig } from "./config.js";
 import { runDhalDoctor, type DhalDoctorResult } from "./doctor.js";
+import { getDhalCompatibilityMatrix } from "./compatibility.js";
+import { runDhalReadiness, type DhalReadinessResult } from "./readiness.js";
 import { getDhalRuleCatalog, type DhalRuleCatalogEntry } from "./rules/catalog.js";
 import type { DhalConfig } from "./types.js";
 
@@ -8,6 +10,8 @@ export type DhalSupportReport = {
   generatedAt: string;
   packageName: "@rokadhq/dhal";
   cli: "dhal";
+  version: string;
+  releaseChannel: string;
   configPath: string;
   runtime: {
     node: string;
@@ -32,6 +36,7 @@ export type DhalSupportReport = {
   };
   doctor: DhalDoctorResult;
   ci: ReturnType<typeof evaluateDhalCiPolicy>;
+  readiness: DhalReadinessResult;
   enabledRules: DhalRuleCatalogEntry[];
 };
 
@@ -44,14 +49,18 @@ export function runDhalSupportReport(options: DhalSupportReportOptions = {}): Dh
   const configPath = options.configPath ?? "dhal.json";
   const env = options.env ?? process.env;
   const config = loadDhalConfig(configPath);
+  const compatibility = getDhalCompatibilityMatrix();
   const doctor = runDhalDoctor({ configPath, env });
   const ci = evaluateDhalCiPolicy(config);
   const enabledRules = getDhalRuleCatalog(config).filter((rule) => rule.enabled);
+  const readiness = runDhalReadiness({ configPath, env });
 
   return {
     generatedAt: new Date().toISOString(),
     packageName: "@rokadhq/dhal",
     cli: "dhal",
+    version: compatibility.version,
+    releaseChannel: compatibility.releaseChannel,
     configPath,
     runtime: {
       node: process.version,
@@ -76,6 +85,7 @@ export function runDhalSupportReport(options: DhalSupportReportOptions = {}): Dh
     },
     doctor,
     ci,
+    readiness,
     enabledRules
   };
 }

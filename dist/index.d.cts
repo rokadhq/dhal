@@ -13,6 +13,8 @@ export { runDhalAutosetup } from './autosetup/index.cjs';
 export { DHAL_RULE_CATALOG, DhalRuleCatalogEntry, DhalRuleCatalogRow, findDhalRule, getDhalRuleCatalog } from './rules/catalog.cjs';
 export { DHAL_PRESETS, DhalPreset, DhalPresetName, DhalPresetSummary, applyDhalPreset, getDhalPreset, listDhalPresets } from './presets.cjs';
 export { DhalSupportReport, DhalSupportReportOptions, runDhalSupportReport } from './report.cjs';
+export { DHAL_COMPATIBILITY_MATRIX, DHAL_PACKAGE_VERSION, DHAL_RELEASE_CHANNEL, getDhalCompatibilityMatrix } from './compatibility.cjs';
+export { DhalReadinessCheck, DhalReadinessOptions, DhalReadinessResult, runDhalReadiness } from './readiness.cjs';
 import 'node:events';
 
 declare const defaultConfig: DhalConfig;

@@ -32,7 +32,10 @@ var index_exports = {};
 __export(index_exports, {
   AbuseIpDbProvider: () => AbuseIpDbProvider,
   CompositeDhalTelemetry: () => CompositeDhalTelemetry,
+  DHAL_COMPATIBILITY_MATRIX: () => DHAL_COMPATIBILITY_MATRIX,
+  DHAL_PACKAGE_VERSION: () => DHAL_PACKAGE_VERSION,
   DHAL_PRESETS: () => DHAL_PRESETS,
+  DHAL_RELEASE_CHANNEL: () => DHAL_RELEASE_CHANNEL,
   DHAL_RULE_CATALOG: () => DHAL_RULE_CATALOG,
   DhalEventBus: () => DhalEventBus,
   IpReputationCache: () => IpReputationCache,
@@ -50,6 +53,7 @@ __export(index_exports, {
   defaultConfig: () => defaultConfig,
   evaluateDhalCiPolicy: () => evaluateDhalCiPolicy,
   findDhalRule: () => findDhalRule,
+  getDhalCompatibilityMatrix: () => getDhalCompatibilityMatrix,
   getDhalConfigJsonSchema: () => getDhalConfigJsonSchema,
   getDhalPreset: () => getDhalPreset,
   getDhalRuleCatalog: () => getDhalRuleCatalog,
@@ -59,6 +63,7 @@ __export(index_exports, {
   resolveSeverity: () => resolveSeverity,
   runDhalAutosetup: () => runDhalAutosetup,
   runDhalDoctor: () => runDhalDoctor,
+  runDhalReadiness: () => runDhalReadiness,
   runDhalSupportReport: () => runDhalSupportReport,
   severityAtLeast: () => severityAtLeast,
   shouldEmitSecurityEvent: () => shouldEmitSecurityEvent
@@ -2291,8 +2296,8 @@ function writeLog(logger, config, event) {
 function getDhalConfigJsonSchema() {
   return {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    $id: "https://dhal.dev/schemas/dhal.schema.json",
-    title: "Dhal configuration",
+    $id: "https://dhal.dev/schemas/v0.12/dhal.schema.json",
+    title: "Dhal configuration (v0.12 beta)",
     type: "object",
     additionalProperties: false,
     properties: {
@@ -3895,18 +3900,328 @@ function isPresetName(name) {
   return Object.prototype.hasOwnProperty.call(DHAL_PRESETS, name);
 }
 
+// src/compatibility.ts
+var DHAL_PACKAGE_VERSION = "0.12.0-beta.0";
+var DHAL_RELEASE_CHANNEL = "beta";
+var DHAL_COMPATIBILITY_MATRIX = {
+  packageName: "@rokadhq/dhal",
+  version: DHAL_PACKAGE_VERSION,
+  releaseChannel: DHAL_RELEASE_CHANNEL,
+  node: [
+    {
+      name: "Node.js",
+      range: ">=18.18.0",
+      status: "supported",
+      notes: "Minimum supported runtime for published package execution."
+    },
+    {
+      name: "Node.js 20 LTS",
+      range: ">=20.0.0",
+      status: "tested",
+      notes: "Recommended production baseline for long-term support deployments."
+    },
+    {
+      name: "Node.js 22/24",
+      range: ">=22.0.0",
+      status: "tested",
+      notes: "Used by Dhal release workflows and publish verification."
+    }
+  ],
+  frameworks: [
+    {
+      name: "Express",
+      range: ">=4.18.0 || >=5.0.0",
+      status: "supported",
+      notes: "Use @rokadhq/dhal/express."
+    },
+    {
+      name: "Fastify",
+      range: ">=4.0.0 || >=5.0.0",
+      status: "supported",
+      notes: "Use @rokadhq/dhal/fastify."
+    },
+    {
+      name: "node:http",
+      range: "Node built-in",
+      status: "supported",
+      notes: "Use @rokadhq/dhal/node-http."
+    },
+    {
+      name: "NestJS",
+      range: "Express/Fastify adapters",
+      status: "optional",
+      notes: "Integrate through the underlying Express or Fastify adapter."
+    }
+  ],
+  integrations: [
+    {
+      name: "Redis / Valkey",
+      range: "ioredis >=5.0.0 compatible client",
+      status: "supported",
+      notes: "Use distributed stores for multi-instance production deployments."
+    },
+    {
+      name: "OpenTelemetry API",
+      range: ">=1.8.0",
+      status: "optional",
+      notes: "Use @rokadhq/dhal/telemetry/otel when OTel is already configured in the app."
+    },
+    {
+      name: "AbuseIPDB-style reputation",
+      range: "API key configured by environment variable",
+      status: "optional",
+      notes: "Use cache-first behavior and prefer async mode on public APIs."
+    },
+    {
+      name: "AI SDK autosetup",
+      range: "ai >=5.0.0 plus optional provider packages",
+      status: "experimental",
+      notes: "Generates proposed config; review before enforcing."
+    },
+    {
+      name: "GitHub Actions publishing",
+      range: "npm Trusted Publishing or token fallback",
+      status: "supported",
+      notes: "npmjs publishing is primary; GitHub Packages publishing is optional."
+    }
+  ],
+  packageManagers: [
+    {
+      name: "npm",
+      range: ">=10",
+      status: "tested",
+      notes: "Primary supported package manager and release workflow."
+    },
+    {
+      name: "pnpm / yarn / bun",
+      range: "modern versions",
+      status: "optional",
+      notes: "Expected to work for package consumption; release verification currently uses npm."
+    }
+  ],
+  stability: {
+    publicApi: "beta-stabilizing",
+    configSchema: "beta-stabilizing",
+    cli: "beta-stabilizing",
+    note: "Dhal is moving toward v1. Avoid breaking public imports, config keys, and CLI names unless a migration path is provided."
+  }
+};
+function getDhalCompatibilityMatrix() {
+  return DHAL_COMPATIBILITY_MATRIX;
+}
+
+// src/readiness.ts
+var import_node_fs6 = require("fs");
+var import_node_path6 = require("path");
+var BASE_SCORE = 100;
+function runDhalReadiness(options = {}) {
+  const cwd = options.cwd ?? process.cwd();
+  const configPath = options.configPath ?? "dhal.json";
+  const resolvedConfigPath = (0, import_node_path6.resolve)(cwd, configPath);
+  const production = Boolean(options.production);
+  const minScore = options.minScore ?? (production ? 85 : 70);
+  const compatibility = getDhalCompatibilityMatrix();
+  const checks = [];
+  const configExists = (0, import_node_fs6.existsSync)(resolvedConfigPath);
+  if (!configExists) {
+    checks.push({
+      code: "config.missing",
+      level: production ? "fail" : "warn",
+      message: `No ${configPath} file found.`,
+      hint: "Run `npx dhal init` or `npx dhal presets apply starter --write`.",
+      points: production ? -25 : -10
+    });
+  } else {
+    checks.push({ code: "config.present", level: "pass", message: `Found ${configPath}.`, points: 0 });
+  }
+  let config;
+  try {
+    config = loadDhalConfig(resolvedConfigPath);
+    checks.push({ code: "config.valid", level: "pass", message: "Config loads and validates.", points: 0 });
+  } catch (error) {
+    checks.push({
+      code: "config.invalid",
+      level: "fail",
+      message: error instanceof Error ? error.message : String(error),
+      hint: "Run `npx dhal test-config` and fix validation errors before release.",
+      points: -60
+    });
+    const score2 = clampScore(BASE_SCORE + sumPoints(checks));
+    return {
+      ok: false,
+      packageName: "@rokadhq/dhal",
+      version: compatibility.version,
+      releaseChannel: compatibility.releaseChannel,
+      target: production ? "production" : "development",
+      minScore,
+      score: score2,
+      maxScore: BASE_SCORE,
+      configPath: resolvedConfigPath,
+      configExists,
+      checks
+    };
+  }
+  addModeChecks(config, checks, production);
+  addRouteChecks(config, checks, production);
+  addStoreChecks(config, checks, production);
+  addRuntimeChecks(config, checks, production);
+  addObservabilityChecks(config, checks, production, options.env ?? process.env);
+  addPolicyChecks(config, checks, production);
+  addRulesChecks(config, checks);
+  const doctor = runDhalDoctor({ configPath: resolvedConfigPath, env: options.env });
+  if (!doctor.ok) {
+    checks.push({
+      code: "doctor.needs_attention",
+      level: "warn",
+      message: "Dhal doctor reported errors or warnings that should be reviewed.",
+      hint: "Run `npx dhal doctor --json` for the full diagnostic report.",
+      points: production ? -10 : -5
+    });
+  }
+  const score = clampScore(BASE_SCORE + sumPoints(checks));
+  const hardFailures = checks.some((check) => check.level === "fail");
+  const enforcingRoutes = Object.values(config.routes).filter((route) => route.enabled !== false && (route.mode === "block" || route.mode === "strict")).length;
+  return {
+    ok: !hardFailures && score >= minScore,
+    packageName: "@rokadhq/dhal",
+    version: compatibility.version,
+    releaseChannel: compatibility.releaseChannel,
+    target: production ? "production" : "development",
+    minScore,
+    score,
+    maxScore: BASE_SCORE,
+    configPath: resolvedConfigPath,
+    configExists,
+    summary: {
+      mode: config.mode,
+      routeProfiles: Object.keys(config.routes).length,
+      enforcingRoutes,
+      enabledRules: getDhalRuleCatalog(config).filter((rule) => rule.enabled).length,
+      rateLimitStore: config.rateLimit.store,
+      trustProxy: config.trustProxy,
+      redactionEnabled: config.observability.redaction.enabled,
+      webhooksEnabled: config.observability.webhooks.enabled,
+      webhookSigningEnabled: config.observability.webhooks.signing.enabled,
+      runtimeBypassEnabled: config.runtime.bypass.enabled,
+      onInternalError: config.runtime.onInternalError
+    },
+    checks
+  };
+}
+function addModeChecks(config, checks, production) {
+  if (config.mode === "off") {
+    checks.push({ code: "mode.off", level: "fail", message: "Global mode is off.", hint: "Use monitor globally and block/strict per route when ready.", points: -40 });
+    return;
+  }
+  if (config.mode === "monitor") {
+    checks.push({ code: "mode.monitor", level: "warn", message: "Global mode is monitor.", hint: "This is correct for rollout; add route-level block mode for high-confidence endpoints.", points: production ? -8 : 0 });
+    return;
+  }
+  checks.push({ code: "mode.enforcing", level: "pass", message: `Global mode is ${config.mode}.`, points: 0 });
+}
+function addRouteChecks(config, checks, production) {
+  const routeProfiles = Object.values(config.routes).filter((route) => route.enabled !== false);
+  const enforcingRoutes = routeProfiles.filter((route) => route.mode === "block" || route.mode === "strict");
+  if (routeProfiles.length === 0) {
+    checks.push({ code: "routes.none", level: production ? "warn" : "pass", message: "No route-specific profiles are configured.", hint: "Add profiles for /api/login, upload, private API, and admin surfaces before v1.", points: production ? -8 : 0 });
+    return;
+  }
+  if (enforcingRoutes.length === 0 && config.mode === "monitor") {
+    checks.push({ code: "routes.no_enforcement", level: production ? "warn" : "pass", message: "Route profiles exist but none are in block/strict mode.", hint: "Enable block mode on high-confidence routes after replaying false positives.", points: production ? -10 : 0 });
+    return;
+  }
+  checks.push({ code: "routes.enforcing", level: "pass", message: `${enforcingRoutes.length} route profile(s) are enforcing.`, points: 0 });
+}
+function addStoreChecks(config, checks, production) {
+  if (!config.rateLimit.enabled) {
+    checks.push({ code: "rate_limit.disabled", level: production ? "warn" : "pass", message: "Rate limiting is disabled.", hint: "Enable rate limiting for public APIs before v1 production usage.", points: production ? -8 : 0 });
+    return;
+  }
+  if (config.rateLimit.store === "memory" && production) {
+    checks.push({ code: "rate_limit.memory", level: "warn", message: "Rate limiting uses memory store in production target.", hint: "Use Redis/Valkey for multi-instance, serverless, or horizontally scaled deployments.", points: -8 });
+    return;
+  }
+  checks.push({ code: "rate_limit.ready", level: "pass", message: `Rate limiting is enabled with ${config.rateLimit.store} store.`, points: 0 });
+}
+function addRuntimeChecks(config, checks, production) {
+  if (config.runtime.maxInspectionMs > 100 && production) {
+    checks.push({ code: "runtime.high_max_inspection", level: "warn", message: "runtime.maxInspectionMs is above 100ms.", hint: "Keep hot-path inspection budget low for public APIs.", points: -5 });
+  }
+  if (!config.runtime.bypass.enabled && production) {
+    checks.push({ code: "runtime.no_bypass", level: "warn", message: "Runtime bypass is disabled.", hint: "Health, readiness, liveness, and OPTIONS preflight routes should normally bypass WAF inspection.", points: -5 });
+  } else {
+    checks.push({ code: "runtime.bypass", level: "pass", message: "Runtime bypass is configured.", points: 0 });
+  }
+  if (config.runtime.onInternalError === "block" && config.mode !== "strict") {
+    checks.push({ code: "runtime.fail_closed", level: "warn", message: "Internal Dhal errors fail closed.", hint: "Only use fail-closed after proving store/telemetry reliability under load.", points: -4 });
+  }
+}
+function addObservabilityChecks(config, checks, production, env) {
+  if (!config.observability.redaction.enabled) {
+    checks.push({ code: "privacy.redaction_disabled", level: production ? "fail" : "warn", message: "Observability redaction is disabled.", hint: "Enable redaction before sending diagnostics/events to shared systems.", points: production ? -30 : -10 });
+  } else {
+    checks.push({ code: "privacy.redaction", level: "pass", message: "Observability redaction is enabled.", points: 0 });
+  }
+  if (config.observability.webhooks.enabled) {
+    if (!config.observability.webhooks.signing.enabled) {
+      checks.push({ code: "webhooks.unsigned", level: production ? "fail" : "warn", message: "Webhook alerts are enabled without signing.", hint: "Enable HMAC signing before production alert delivery.", points: production ? -25 : -10 });
+    } else if (!env[config.observability.webhooks.signing.secretEnv]) {
+      checks.push({ code: "webhooks.missing_secret", level: production ? "fail" : "warn", message: `Webhook signing is enabled but ${config.observability.webhooks.signing.secretEnv} is not set.`, points: production ? -25 : -10 });
+    } else {
+      checks.push({ code: "webhooks.signed", level: "pass", message: "Webhook signing is configured and secret is present.", points: 0 });
+    }
+  }
+  if (config.ip.reputation.enabled && config.ip.reputation.mode === "blocking" && !env[config.ip.reputation.apiKeyEnv]) {
+    checks.push({ code: "ip_reputation.blocking_missing_key", level: production ? "fail" : "warn", message: `Blocking IP reputation is enabled but ${config.ip.reputation.apiKeyEnv} is not set.`, points: production ? -25 : -10 });
+  }
+}
+function addPolicyChecks(config, checks, production) {
+  const ci = evaluateDhalCiPolicy(config);
+  for (const finding of ci.findings) {
+    checks.push({
+      code: `ci.${finding.code}`,
+      level: finding.level === "error" ? "fail" : "warn",
+      message: finding.message,
+      points: finding.level === "error" ? -20 : production ? -6 : -2
+    });
+  }
+  if (config.policy.audit.enabled) {
+    checks.push({ code: "policy.audit", level: "pass", message: "Policy audit explanations are enabled.", points: 0 });
+  } else if (production) {
+    checks.push({ code: "policy.audit_disabled", level: "warn", message: "Policy audit explanations are disabled.", hint: "Keep audit enabled through beta and v1 rollout.", points: -5 });
+  }
+}
+function addRulesChecks(config, checks) {
+  const enabledRules = getDhalRuleCatalog(config).filter((rule) => rule.enabled).length;
+  if (enabledRules === 0) {
+    checks.push({ code: "rules.none", level: "fail", message: "No rule catalog entries are enabled.", points: -40 });
+    return;
+  }
+  checks.push({ code: "rules.enabled", level: "pass", message: `${enabledRules} rule catalog entries are enabled.`, points: 0 });
+}
+function sumPoints(checks) {
+  return checks.reduce((sum, check) => sum + check.points, 0);
+}
+function clampScore(score) {
+  return Math.max(0, Math.min(BASE_SCORE, Math.round(score)));
+}
+
 // src/report.ts
 function runDhalSupportReport(options = {}) {
   const configPath = options.configPath ?? "dhal.json";
   const env = options.env ?? process.env;
   const config = loadDhalConfig(configPath);
+  const compatibility = getDhalCompatibilityMatrix();
   const doctor = runDhalDoctor({ configPath, env });
   const ci = evaluateDhalCiPolicy(config);
   const enabledRules = getDhalRuleCatalog(config).filter((rule) => rule.enabled);
+  const readiness = runDhalReadiness({ configPath, env });
   return {
     generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
     packageName: "@rokadhq/dhal",
     cli: "dhal",
+    version: compatibility.version,
+    releaseChannel: compatibility.releaseChannel,
     configPath,
     runtime: {
       node: process.version,
@@ -3931,6 +4246,7 @@ function runDhalSupportReport(options = {}) {
     },
     doctor,
     ci,
+    readiness,
     enabledRules
   };
 }
@@ -3938,7 +4254,10 @@ function runDhalSupportReport(options = {}) {
 0 && (module.exports = {
   AbuseIpDbProvider,
   CompositeDhalTelemetry,
+  DHAL_COMPATIBILITY_MATRIX,
+  DHAL_PACKAGE_VERSION,
   DHAL_PRESETS,
+  DHAL_RELEASE_CHANNEL,
   DHAL_RULE_CATALOG,
   DhalEventBus,
   IpReputationCache,
@@ -3956,6 +4275,7 @@ function runDhalSupportReport(options = {}) {
   defaultConfig,
   evaluateDhalCiPolicy,
   findDhalRule,
+  getDhalCompatibilityMatrix,
   getDhalConfigJsonSchema,
   getDhalPreset,
   getDhalRuleCatalog,
@@ -3965,6 +4285,7 @@ function runDhalSupportReport(options = {}) {
   resolveSeverity,
   runDhalAutosetup,
   runDhalDoctor,
+  runDhalReadiness,
   runDhalSupportReport,
   severityAtLeast,
   shouldEmitSecurityEvent

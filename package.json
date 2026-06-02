@@ -1,7 +1,7 @@
 {
   "name": "@rokadhq/dhal",
-  "version": "0.11.0-alpha.0",
-  "description": "Alpha-public app-native WAF for Node.js with runtime safety controls, support reports, config presets, AI-assisted autosetup, rule packs, policy controls, bot defense, credential-stuffing protection, and observability.",
+  "version": "0.12.0-beta.0",
+  "description": "Beta-track app-native WAF for Node.js with v1-readiness diagnostics, compatibility matrix, runtime safety controls, config presets, AI-assisted autosetup, rule packs, policy controls, bot defense, credential-stuffing protection, and observability.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -95,22 +95,36 @@
       "types": "./dist/report.d.ts",
       "import": "./dist/report.js",
       "require": "./dist/report.cjs"
+    },
+    "./compatibility": {
+      "types": "./dist/compatibility.d.ts",
+      "import": "./dist/compatibility.js",
+      "require": "./dist/compatibility.cjs"
+    },
+    "./readiness": {
+      "types": "./dist/readiness.d.ts",
+      "import": "./dist/readiness.js",
+      "require": "./dist/readiness.cjs"
     }
   },
   "files": [
     "dist",
     "README.md",
-    "ALPHA.md",
     "SECURITY_NOTES.md",
     "dhal.schema.json",
     "RELEASE_INTEGRITY.md",
     "LICENSE",
     "SECURITY.md",
     "CHANGELOG.md",
+    "ALPHA.md",
+    "BETA.md",
+    "V1_READINESS.md",
+    "API_STABILITY.md",
+    "UPGRADING.md",
     "PUBLISHING.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/cli.ts src/config-schema.ts src/doctor.ts src/rules/catalog.ts src/presets.ts src/report.ts src/adapters/express.ts src/adapters/fastify.ts src/adapters/node-http.ts src/stores/redis-rate-limit-store.ts src/stores/redis-signal-store.ts src/stores/memory-signal-store.ts src/reputation/abuseipdb.ts src/telemetry/otel.ts src/telemetry/webhook.ts src/autosetup/index.ts --format esm,cjs --dts --clean",
+    "build": "tsup src/index.ts src/cli.ts src/config-schema.ts src/doctor.ts src/rules/catalog.ts src/presets.ts src/report.ts src/readiness.ts src/compatibility.ts src/adapters/express.ts src/adapters/fastify.ts src/adapters/node-http.ts src/stores/redis-rate-limit-store.ts src/stores/redis-signal-store.ts src/stores/memory-signal-store.ts src/reputation/abuseipdb.ts src/telemetry/otel.ts src/telemetry/webhook.ts src/autosetup/index.ts --format esm,cjs --dts --clean",
     "typecheck": "tsc --noEmit",
     "dev:express": "tsx examples/express.ts",
     "dev:fastify": "tsx examples/fastify.ts",
@@ -124,8 +138,8 @@
     "pack:release": "npm run verify:publish && npm pack",
     "prepublishOnly": "npm run verify:publish",
     "doctor": "node -e \"console.log(`node ${process.version}`); console.log(`npm ${process.env.npm_config_user_agent || 'unknown'}`)\"",
-    "publish:local": "npm publish --tag next --access public --provenance=false",
-    "publish:ci": "npm publish --tag next --access public --provenance=false"
+    "publish:local": "npm publish --tag beta --access public --provenance=false",
+    "publish:ci": "npm publish --tag beta --access public"
   },
   "peerDependencies": {
     "@opentelemetry/api": ">=1.8.0",

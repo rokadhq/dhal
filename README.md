@@ -6,6 +6,20 @@ It sits inside the application request path and provides deterministic controls 
 
 Dhal complements CDN/edge/network WAFs. It does not replace upstream DDoS or bandwidth-exhaustion protection.
 
+## v0.12 beta / v1-readiness focus
+
+Dhal v0.12 moves the project from alpha-public hardening toward a v1 release track. It adds a compatibility matrix, v1-readiness scoring, a public readiness API, and workflow updates that resolve prerelease dist-tags automatically for alpha, beta, rc, next, and latest releases.
+
+Use the beta tag explicitly:
+
+```bash
+npm install @rokadhq/dhal@beta
+npx dhal readiness --production
+npx dhal compat
+```
+
+The public API, config shape, and CLI are now treated as beta-stabilizing. Breaking changes before v1 should come with migration notes and explicit release guidance.
+
 ## v0.11 alpha-public focus
 
 Dhal v0.11 alpha-public hardens the package for real public usage. It adds runtime failure policy controls, health-check/preflight bypasses, privacy-first observability redaction, support-report generation, and stronger diagnostics for production installs.
@@ -44,10 +58,10 @@ This package includes a publish checklist and release scripts:
 ```bash
 npm run verify:publish
 npm run pack:dry
-npm publish --tag next --provenance
+npm publish --tag beta --access public
 ```
 
-See `PUBLISHING.md` before the first npm publish.
+GitHub Actions publish workflows resolve dist-tags automatically: prerelease alpha versions publish under `alpha`, beta under `beta`, release candidates under `rc`, pre-1.0 non-prereleases under `next`, and v1+ releases under `latest`. See `PUBLISHING.md` before release.
 
 ## Install
 
@@ -134,6 +148,18 @@ Run production-readiness diagnostics:
 
 ```bash
 npx dhal doctor
+```
+
+Score v1 readiness for a production target:
+
+```bash
+npx dhal readiness --production
+```
+
+Print supported runtimes, framework adapters, integrations, and stability status:
+
+```bash
+npx dhal compat
 ```
 
 List the effective rule catalog:

@@ -1,33 +1,9 @@
 import {
-  RedisRateLimitStore
-} from "./chunk-HEIOUMS3.js";
-import {
   RedisSignalStore
 } from "./chunk-7AA6S7PN.js";
 import {
-  runDhalAutosetup
-} from "./chunk-2ZBPTWCA.js";
-import {
-  getDhalConfigJsonSchema
-} from "./chunk-RNHUOQPX.js";
-import {
-  DHAL_PRESETS,
-  applyDhalPreset,
-  getDhalPreset,
-  listDhalPresets
-} from "./chunk-7IT5NXY4.js";
-import {
-  runDhalSupportReport
-} from "./chunk-EWHY4K3Y.js";
-import {
-  evaluateDhalCiPolicy,
-  runDhalDoctor
-} from "./chunk-7YFUZ4GA.js";
-import {
-  DHAL_RULE_CATALOG,
-  findDhalRule,
-  getDhalRuleCatalog
-} from "./chunk-INPUNSI6.js";
+  RedisRateLimitStore
+} from "./chunk-HEIOUMS3.js";
 import {
   CompositeDhalTelemetry,
   DhalEventBus,
@@ -40,10 +16,16 @@ import {
   resolveSeverity,
   severityAtLeast,
   shouldEmitSecurityEvent
-} from "./chunk-DHI46RN2.js";
+} from "./chunk-O7EGEEKL.js";
+import {
+  OpenTelemetryDhalTelemetry
+} from "./chunk-JCY2QFLP.js";
 import {
   WebhookDhalTelemetry
 } from "./chunk-BGMTMZGL.js";
+import {
+  runDhalAutosetup
+} from "./chunk-2ZBPTWCA.js";
 import {
   AbuseIpDbProvider,
   createAbuseIpDbProviderFromConfig
@@ -52,8 +34,35 @@ import {
   MemorySignalStore
 } from "./chunk-IRZXZAQ4.js";
 import {
-  OpenTelemetryDhalTelemetry
-} from "./chunk-JCY2QFLP.js";
+  getDhalConfigJsonSchema
+} from "./chunk-AITPF7EV.js";
+import {
+  DHAL_PRESETS,
+  applyDhalPreset,
+  getDhalPreset,
+  listDhalPresets
+} from "./chunk-7IT5NXY4.js";
+import {
+  runDhalSupportReport
+} from "./chunk-EVRPKOE3.js";
+import {
+  runDhalReadiness
+} from "./chunk-PCO2JQM6.js";
+import {
+  DHAL_COMPATIBILITY_MATRIX,
+  DHAL_PACKAGE_VERSION,
+  DHAL_RELEASE_CHANNEL,
+  getDhalCompatibilityMatrix
+} from "./chunk-XMHWQV7G.js";
+import {
+  evaluateDhalCiPolicy,
+  runDhalDoctor
+} from "./chunk-7YFUZ4GA.js";
+import {
+  DHAL_RULE_CATALOG,
+  findDhalRule,
+  getDhalRuleCatalog
+} from "./chunk-INPUNSI6.js";
 import {
   defaultConfig,
   loadDhalConfig
@@ -61,7 +70,10 @@ import {
 export {
   AbuseIpDbProvider,
   CompositeDhalTelemetry,
+  DHAL_COMPATIBILITY_MATRIX,
+  DHAL_PACKAGE_VERSION,
   DHAL_PRESETS,
+  DHAL_RELEASE_CHANNEL,
   DHAL_RULE_CATALOG,
   DhalEventBus,
   IpReputationCache,
@@ -79,6 +91,7 @@ export {
   defaultConfig,
   evaluateDhalCiPolicy,
   findDhalRule,
+  getDhalCompatibilityMatrix,
   getDhalConfigJsonSchema,
   getDhalPreset,
   getDhalRuleCatalog,
@@ -88,6 +101,7 @@ export {
   resolveSeverity,
   runDhalAutosetup,
   runDhalDoctor,
+  runDhalReadiness,
   runDhalSupportReport,
   severityAtLeast,
   shouldEmitSecurityEvent

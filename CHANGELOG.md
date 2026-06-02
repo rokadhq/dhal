@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.0-beta.0 - V1-readiness beta
+
+- Moved Dhal into a beta-track release focused on v1 readiness.
+- Added `dhal readiness` / `dhal v1-readiness` to score config posture for development or production targets.
+- Added public `runDhalReadiness` API and `@rokadhq/dhal/readiness` export path.
+- Added `dhal compat` to print supported Node runtimes, framework adapters, integrations, package managers, and stability status.
+- Added public compatibility matrix API through `getDhalCompatibilityMatrix` and `@rokadhq/dhal/compatibility`.
+- Added `BETA.md`, `V1_READINESS.md`, `API_STABILITY.md`, and `UPGRADING.md`.
+- Updated GitHub Actions publishing workflows to use npm Trusted Publishing for npmjs and `GITHUB_TOKEN` for GitHub Packages.
+- Added automatic prerelease dist-tag resolution: `alpha`, `beta`, `rc`, `next`, and `latest`.
+- Extended support reports with version/channel/readiness metadata.
+
 ## 0.11.0-alpha.0 - Alpha-public hardening
 
 - Added `runtime` config for internal-error behavior, inspection budget metadata, and health/preflight bypasses.

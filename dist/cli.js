@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 import {
+  createDhal,
+  extractIdentity
+} from "./chunk-O7EGEEKL.js";
+import "./chunk-JCY2QFLP.js";
+import "./chunk-BGMTMZGL.js";
+import {
   runDhalAutosetup
 } from "./chunk-2ZBPTWCA.js";
+import "./chunk-X7PS5EQX.js";
+import "./chunk-IRZXZAQ4.js";
 import {
   getDhalConfigJsonSchema
-} from "./chunk-RNHUOQPX.js";
+} from "./chunk-AITPF7EV.js";
 import {
   applyDhalPreset,
   getDhalPreset,
@@ -13,7 +21,13 @@ import {
 } from "./chunk-7IT5NXY4.js";
 import {
   runDhalSupportReport
-} from "./chunk-EWHY4K3Y.js";
+} from "./chunk-EVRPKOE3.js";
+import {
+  runDhalReadiness
+} from "./chunk-PCO2JQM6.js";
+import {
+  getDhalCompatibilityMatrix
+} from "./chunk-XMHWQV7G.js";
 import {
   evaluateDhalCiPolicy,
   runDhalDoctor
@@ -21,14 +35,6 @@ import {
 import {
   getDhalRuleCatalog
 } from "./chunk-INPUNSI6.js";
-import {
-  createDhal,
-  extractIdentity
-} from "./chunk-DHI46RN2.js";
-import "./chunk-BGMTMZGL.js";
-import "./chunk-X7PS5EQX.js";
-import "./chunk-IRZXZAQ4.js";
-import "./chunk-JCY2QFLP.js";
 import {
   defaultConfig,
   loadDhalConfig
@@ -77,6 +83,14 @@ async function main() {
       return;
     case "rules":
       listRules(parsed.configPath, Boolean(parsed.json));
+      return;
+    case "compat":
+    case "compatibility":
+      showCompatibility(Boolean(parsed.json));
+      return;
+    case "readiness":
+    case "v1-readiness":
+      runReadiness(parsed.configPath ?? parsed.positional[0], Boolean(parsed.json), Boolean(parsed.production), parsed.minScore);
       return;
     case "presets":
     case "preset":
@@ -130,6 +144,11 @@ function parseArgs(values) {
       index += 1;
     } else if (value === "--fail-on-block") {
       parsed.failOnBlock = true;
+    } else if (value === "--production") {
+      parsed.production = true;
+    } else if (value === "--min-score") {
+      parsed.minScore = Number(values[index + 1]);
+      index += 1;
     } else if (value !== void 0) {
       parsed.positional.push(value);
     }
@@ -248,6 +267,46 @@ function listRules(configPath, json = false) {
     const severity = rule.effectiveSeverity ?? rule.defaultSeverity;
     console.log(`${enabled} ${severity.padEnd(8)} ${rule.id.padEnd(42)} ${rule.title}`);
   }
+}
+function showCompatibility(json = false) {
+  const matrix = getDhalCompatibilityMatrix();
+  if (json) {
+    console.log(JSON.stringify(matrix, null, 2));
+    return;
+  }
+  console.log(`Dhal compatibility: ${matrix.packageName}@${matrix.version} (${matrix.releaseChannel})`);
+  console.log(`Public API: ${matrix.stability.publicApi}`);
+  console.log(`Config schema: ${matrix.stability.configSchema}`);
+  console.log(`CLI: ${matrix.stability.cli}`);
+  console.log("\nNode runtimes:");
+  for (const item of matrix.node) console.log(`- ${item.name} ${item.range} [${item.status}] ${item.notes}`);
+  console.log("\nFrameworks:");
+  for (const item of matrix.frameworks) console.log(`- ${item.name} ${item.range} [${item.status}] ${item.notes}`);
+  console.log("\nIntegrations:");
+  for (const item of matrix.integrations) console.log(`- ${item.name} ${item.range} [${item.status}] ${item.notes}`);
+}
+function runReadiness(path = "dhal.json", json = false, production = false, minScore) {
+  const result = runDhalReadiness({ configPath: path, production, minScore });
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    console.log(`Dhal v1 readiness: ${result.ok ? "ready" : "needs work"}`);
+    console.log(`Version: ${result.version} (${result.releaseChannel})`);
+    console.log(`Target: ${result.target}`);
+    console.log(`Score: ${result.score}/${result.maxScore} (min ${result.minScore})`);
+    if (result.summary) {
+      console.log(`Mode: ${result.summary.mode}`);
+      console.log(`Routes: ${result.summary.routeProfiles} profiles, ${result.summary.enforcingRoutes} enforcing`);
+      console.log(`Rules: ${result.summary.enabledRules} enabled`);
+      console.log(`Rate limit store: ${result.summary.rateLimitStore}`);
+    }
+    for (const check of result.checks) {
+      const prefix = check.level === "pass" ? "PASS" : check.level === "warn" ? "WARN" : "FAIL";
+      console.log(`${prefix} ${check.code}: ${check.message}`);
+      if (check.hint) console.log(`  hint: ${check.hint}`);
+    }
+  }
+  if (!result.ok) process.exitCode = 1;
 }
 function handlePresets(parsed) {
   const [subcommand, name] = parsed.positional;
@@ -500,6 +559,8 @@ Usage:
   dhal doctor [--config dhal.json] [--json]
   dhal report [--config dhal.json] [--json] [--output dhal.report.json]
   dhal rules [--config dhal.json] [--json]
+  dhal readiness [--config dhal.json] [--production] [--min-score 85] [--json]
+  dhal compat [--json]
   dhal presets [list|show <name>|apply <name>] [--config dhal.json] [--output path] [--write] [--json]
   dhal autosetup [projectRoot] [--provider gateway|openai|anthropic|google|mistral|xai|custom] [--model model-id] [--write] [--json]
   dhal replay ./false-positive-fixtures.json [--config dhal.json] [--json] [--fail-on-block]
@@ -515,6 +576,8 @@ Commands:
   doctor          Run local production-readiness diagnostics
   report          Generate a redacted support report for debugging public installs
   rules           List built-in rule catalog entries and effective enabled/severity state
+  readiness       Score current config against Dhal v1 readiness checks
+  compat          Print runtime, framework, integration, and stability compatibility matrix
   presets         List, inspect, or apply production-ready dhal.json config presets
   autosetup       Scan a Node project and propose/apply route-aware Dhal rules; can use the AI SDK package
   replay          Replay expected-allow/block fixtures for false-positive regression testing
