@@ -239,7 +239,6 @@ describe("Dhal policy controls", () => {
   });
 });
 
-
 describe("Dhal v0.7 rule quality", () => {
   it("supports IPv4 and IPv6 CIDR matches", () => {
     expect(matchesIpList("203.0.113.7", ["203.0.113.0/24"])).toBe(true);
@@ -484,13 +483,13 @@ describe("Dhal v0.11 alpha-public hardening", () => {
   });
 });
 
-describe("Dhal v0.12 beta v1 readiness", () => {
+describe("Dhal v0.13 beta v1 contract hardening", () => {
   it("exposes compatibility matrix for public package consumers", async () => {
     const { getDhalCompatibilityMatrix } = await import("../src/compatibility.js");
     const matrix = getDhalCompatibilityMatrix();
 
     expect(matrix.packageName).toBe("@rokadhq/dhal");
-    expect(matrix.version).toBe("0.12.0-beta.0");
+    expect(matrix.version).toBe("0.13.0-beta.1");
     expect(matrix.releaseChannel).toBe("beta");
     expect(matrix.frameworks.some((entry) => entry.name === "Express" && entry.status === "supported")).toBe(true);
   });
@@ -507,11 +506,32 @@ describe("Dhal v0.12 beta v1 readiness", () => {
     expect(result.checks.some((check) => check.code === "mode.monitor")).toBe(true);
   });
 
+  it("migrates pre-schemaVersion configs into schemaVersion 1", async () => {
+    const { migrateDhalConfig } = await import("../src/migrations.js");
+    const result = migrateDhalConfig({ mode: "monitor", rateLimit: { default: { windowSeconds: 10, max: 3 } } });
+
+    expect(result.ok).toBe(true);
+    expect(result.changed).toBe(true);
+    expect(result.fromSchemaVersion).toBeNull();
+    expect(result.toSchemaVersion).toBe("1");
+    expect(result.config.schemaVersion).toBe("1");
+    expect(result.config.rateLimit.default.max).toBe(3);
+  });
+
+  it("exposes public API stability labels for the v1 contract", async () => {
+    const { getDhalApiStabilityReport } = await import("../src/stability.js");
+    const report = getDhalApiStabilityReport();
+
+    expect(report.version).toBe("0.13.0-beta.1");
+    expect(report.surfaces.some((surface) => surface.name === "Express adapter" && surface.level === "stable-for-v1")).toBe(true);
+    expect(report.surfaces.some((surface) => surface.name === "AI autosetup" && surface.level === "experimental")).toBe(true);
+  });
+
   it("includes readiness metadata in support reports", async () => {
     const { runDhalSupportReport } = await import("../src/report.js");
     const report = runDhalSupportReport({ configPath: "./missing-dhal-report-v012-config.json", env: {} });
 
-    expect(report.version).toBe("0.12.0-beta.0");
+    expect(report.version).toBe("0.13.0-beta.1");
     expect(report.releaseChannel).toBe("beta");
     expect(report.readiness.packageName).toBe("@rokadhq/dhal");
   });
