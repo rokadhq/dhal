@@ -2,7 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { DhalConfig, DhalCredentialStuffingKey, DhalIdentityKey, DhalMode, DhalRouteProfile, DhalSeverity, PartialDeep } from "./types.js";
 
+export const DHAL_CONFIG_SCHEMA_VERSION = "1" as const;
+
 export const defaultConfig: DhalConfig = {
+  schemaVersion: DHAL_CONFIG_SCHEMA_VERSION,
   mode: "monitor",
   trustProxy: false,
   runtime: {
@@ -259,6 +262,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function validateConfig(config: DhalConfig): void {
+  if (config.schemaVersion !== DHAL_CONFIG_SCHEMA_VERSION) {
+    throw new Error(`Unsupported schemaVersion: ${String(config.schemaVersion)}. Expected ${DHAL_CONFIG_SCHEMA_VERSION}. Run \`npx dhal migrate --write\`.`);
+  }
+
   assertMode(config.mode, "mode");
 
   const stores = new Set(["memory", "redis"]);
@@ -447,7 +454,6 @@ function validateRuleConfig(path: string, rules: DhalConfig["rules"]): void {
     validateMimePattern(`${path}.contentType.allowedJsonMimeTypes[]`, contentType);
   }
 }
-
 
 function validateRedaction(config: DhalConfig): void {
   const redactionModes = new Set(["none", "mask", "hash", "omit"]);
