@@ -1,8 +1,19 @@
 # API stability
 
-Dhal exposes public APIs through package exports in `package.json`.
+Dhal `1.0.0-rc.0` freezes the public v1 contract for release-candidate validation.
 
-Stable-intent imports heading toward v1:
+The authoritative machine-readable contract is available from:
+
+```ts
+import {
+  DHAL_V1_PUBLIC_EXPORTS,
+  DHAL_V1_CLI_COMMANDS,
+  getDhalV1Contract,
+  validateDhalV1Contract
+} from "@rokadhq/dhal/v1-contract";
+```
+
+Stable v1 imports include:
 
 ```ts
 import { createDhal } from "@rokadhq/dhal";
@@ -11,14 +22,21 @@ import { dhalFastify } from "@rokadhq/dhal/fastify";
 import { createNodeHttpDhal } from "@rokadhq/dhal/node-http";
 import { runDhalDoctor } from "@rokadhq/dhal/doctor";
 import { runDhalReadiness } from "@rokadhq/dhal/readiness";
+import { runDhalReleaseCheck } from "@rokadhq/dhal";
 import { getDhalCompatibilityMatrix } from "@rokadhq/dhal/compatibility";
+import { migrateDhalConfig } from "@rokadhq/dhal/migrations";
 ```
 
-The product name remains Dhal. The CLI remains `dhal`. The config file remains `dhal.json`.
+The product name remains Dhal. The CLI remains `dhal`. The configuration file remains `dhal.json`, with `schemaVersion: "1"`.
 
-Before v1, any breaking import/config/CLI change should include:
+## Compatibility policy
 
-- migration note in `UPGRADING.md`
-- changelog entry
-- compatibility note
-- replacement API or deprecation path where possible
+During the RC phase, defects may be fixed without changing the declared stable contract. Within the stable v1 line:
+
+- stable exports must not be removed or renamed without a major release;
+- stable CLI command names remain available throughout v1.x;
+- schema version 1 changes must remain backward compatible;
+- deprecated APIs require documentation, a replacement path, and migration guidance;
+- experimental surfaces may evolve within v1.x while they remain explicitly labelled experimental.
+
+AI-assisted autosetup remains experimental and is not part of the stable v1 compatibility guarantee.
