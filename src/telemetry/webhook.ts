@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
+import { DHAL_PACKAGE_VERSION } from "../compatibility.js";
 import type { DhalConfig, DhalSecurityEvent, DhalTelemetry } from "../types.js";
 
 export class WebhookDhalTelemetry implements DhalTelemetry {
@@ -25,7 +26,7 @@ export class WebhookDhalTelemetry implements DhalTelemetry {
     const body = JSON.stringify(payload);
     const headers: Record<string, string> = {
       "content-type": "application/json",
-      "user-agent": "dhal-webhook/0.8.0"
+      "user-agent": `dhal-webhook/${DHAL_PACKAGE_VERSION}`
     };
 
     addSignatureHeaders(headers, body, event.eventId, this.config.signing);
