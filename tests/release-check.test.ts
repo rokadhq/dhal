@@ -20,4 +20,16 @@ describe("Dhal release check", () => {
     expect(result.findings.some((finding) => finding.code === "release.version" && finding.level === "pass")).toBe(true);
     expect(result.findings.some((finding) => finding.code === "release.channel" && finding.level === "pass")).toBe(true);
   });
+
+  it("blocks stable promotion while the package still has RC metadata", () => {
+    const result = runDhalReleaseCheck({ target: "stable", requireBuild: false });
+
+    expect(result.ok).toBe(false);
+    expect(result.findings.some((finding) => finding.code === "release.version" && finding.level === "fail")).toBe(true);
+    expect(result.findings.some((finding) => finding.code === "release.channel" && finding.level === "fail")).toBe(true);
+    expect(result.findings.some((finding) => finding.code === "stable.security_policy" && finding.level === "pass")).toBe(true);
+    expect(result.findings.some((finding) => finding.code === "stable.support_policy" && finding.level === "pass")).toBe(true);
+    expect(result.findings.some((finding) => finding.code === "stable.changelog" && finding.level === "fail")).toBe(true);
+    expect(result.findings.some((finding) => finding.code === "stable.publish_tag" && finding.level === "fail")).toBe(true);
+  });
 });
