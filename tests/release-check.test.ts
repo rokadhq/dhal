@@ -11,11 +11,13 @@ describe("Dhal release check", () => {
     expect(result.findings.some((finding) => finding.code === "exports.unclassified" && finding.level === "pass")).toBe(true);
   });
 
-  it("does not allow the beta version to masquerade as an RC", () => {
+  it("validates the v1 release-candidate version and channel", () => {
     const result = runDhalReleaseCheck({ target: "rc", requireBuild: false });
 
-    expect(result.ok).toBe(false);
-    expect(result.findings.some((finding) => finding.code === "release.version" && finding.level === "fail")).toBe(true);
-    expect(result.findings.some((finding) => finding.code === "release.channel" && finding.level === "fail")).toBe(true);
+    expect(result.ok).toBe(true);
+    expect(result.packageVersion).toBe("1.0.0-rc.0");
+    expect(result.releaseChannel).toBe("rc");
+    expect(result.findings.some((finding) => finding.code === "release.version" && finding.level === "pass")).toBe(true);
+    expect(result.findings.some((finding) => finding.code === "release.channel" && finding.level === "pass")).toBe(true);
   });
 });
