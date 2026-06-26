@@ -26,7 +26,15 @@ jobs:
       - name: Generate published schema
         run: npm run schema
       - name: Verify promoted RC tree
-        run: npm run verify:v1
+        id: verify
+        shell: bash
+        run: npm run verify:v1 > rc-verify.log 2>&1
+      - name: Upload RC verification diagnostics
+        if: failure() && steps.verify.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dhal-v1.0.0-rc.0-verification-log
+          path: rc-verify.log
       - name: Stage RC artifact
         shell: bash
         run: |
