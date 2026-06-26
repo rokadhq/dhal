@@ -64,6 +64,7 @@ export type { DhalPreset, DhalPresetName, DhalPresetSummary } from "./presets.js
 export { runDhalSupportReport, type DhalSupportReport, type DhalSupportReportOptions } from "./report.js";
 export { DHAL_COMPATIBILITY_MATRIX, DHAL_PACKAGE_VERSION, DHAL_RELEASE_CHANNEL, getDhalCompatibilityMatrix } from "./compatibility.js";
 export { runDhalReadiness, type DhalReadinessCheck, type DhalReadinessOptions, type DhalReadinessResult } from "./readiness.js";
+export { runDhalReleaseCheck, type DhalReleaseCheckFinding, type DhalReleaseCheckLevel, type DhalReleaseCheckOptions, type DhalReleaseCheckResult, type DhalReleaseTarget } from "./release-check.js";
 
 export { getDhalMigrationPlan, migrateDhalConfig, type DhalMigrationNotice, type DhalMigrationPlan, type DhalMigrationResult } from "./migrations.js";
 export { DHAL_API_SURFACES, getDhalApiStabilityReport, type DhalApiStabilityLevel, type DhalApiSurface, type DhalStabilityReport } from "./stability.js";
