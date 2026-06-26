@@ -27,6 +27,17 @@ export type DhalReleaseCheckOptions = {
   requireBuild?: boolean | undefined;
 };
 
+const STABLE_REQUIRED_FILES = [
+  "README.md",
+  "SECURITY.md",
+  "PRODUCTION_SUPPORT.md",
+  "STABLE_RELEASE_PLAN.md",
+  "UPGRADING.md",
+  "PUBLISHING.md",
+  "CHANGELOG.md",
+  "V1_CONTRACT.md"
+] as const;
+
 export function runDhalReleaseCheck(options: DhalReleaseCheckOptions = {}): DhalReleaseCheckResult {
   const rootDir = resolve(options.rootDir ?? process.cwd());
   const target = options.target ?? "development";
@@ -80,6 +91,7 @@ export function runDhalReleaseCheck(options: DhalReleaseCheckOptions = {}): Dhal
   }
 
   validateTarget(findings, target, packageVersion, releaseChannel);
+  if (target === "stable") validateStableProductionRequirements(findings, rootDir, packageJson);
 
   return {
     ok: findings.every((finding) => finding.level !== "fail"),
@@ -106,6 +118,38 @@ function validateTarget(findings: DhalReleaseCheckFinding[], target: DhalRelease
   add(findings, releaseChannel === "latest", "release.channel", "Release channel is latest.", `Stable target requires release channel latest; found ${releaseChannel}.`);
 }
 
+function validateStableProductionRequirements(
+  findings: DhalReleaseCheckFinding[],
+  rootDir: string,
+  packageJson: Record<string, unknown>
+): void {
+  const missingFiles = STABLE_REQUIRED_FILES.filter((file) => !existsSync(resolve(rootDir, file)));
+  add(findings, missingFiles.length === 0, "stable.documentation", "All required production documentation exists.", `Missing production documentation: ${missingFiles.join(", ")}`);
+
+  const security = readOptionalText(resolve(rootDir, "SECURITY.md"));
+  add(findings, security.includes("Latest stable `1.x`"), "stable.security_policy", "Security policy declares the stable v1 support line.", "SECURITY.md does not declare support for the latest stable 1.x line.");
+
+  const support = readOptionalText(resolve(rootDir, "PRODUCTION_SUPPORT.md"));
+  add(findings, support.includes("Compatibility guarantees") && support.includes("Severity and response targets"), "stable.support_policy", "Production support and compatibility commitments are documented.", "PRODUCTION_SUPPORT.md is missing compatibility or response-target commitments.");
+
+  const changelog = readOptionalText(resolve(rootDir, "CHANGELOG.md"));
+  add(findings, changelog.includes("## 1.0.0"), "stable.changelog", "Stable 1.0.0 has a changelog entry.", "CHANGELOG.md does not contain a stable 1.0.0 entry.");
+
+  const engine = isRecord(packageJson.engines) ? stringValue(packageJson.engines.node) : "unknown";
+  add(findings, engine.startsWith(">=20"), "stable.node_runtime", "Stable v1 requires Node.js 20 or newer.", `Stable v1 must require Node.js >=20; found ${engine}.`);
+
+  const scripts = isRecord(packageJson.scripts) ? packageJson.scripts : {};
+  const prepublish = stringValue(scripts.prepublishOnly);
+  add(findings, prepublish.includes("verify:v1"), "stable.prepublish_gate", "Stable publication runs the complete v1 verification gate.", "prepublishOnly must run verify:v1.");
+
+  const publishCi = stringValue(scripts["publish:ci"]);
+  add(findings, publishCi.includes("--tag latest"), "stable.publish_tag", "Stable publishing uses the latest npm dist-tag.", "publish:ci must publish stable v1 with --tag latest.");
+
+  const files = Array.isArray(packageJson.files) ? packageJson.files.filter((entry): entry is string => typeof entry === "string") : [];
+  const missingPublishedPolicies = ["SECURITY.md", "PRODUCTION_SUPPORT.md"].filter((file) => !files.includes(file));
+  add(findings, missingPublishedPolicies.length === 0, "stable.published_policies", "Security and support policies are included in the package.", `Package files omit: ${missingPublishedPolicies.join(", ")}`);
+}
+
 function add(findings: DhalReleaseCheckFinding[], condition: boolean, code: string, pass: string, fail: string): void {
   findings.push({ code, level: condition ? "pass" : "fail", message: condition ? pass : fail });
 }
@@ -122,6 +166,10 @@ function readJson(path: string): Record<string, unknown> {
   const value = JSON.parse(readFileSync(path, "utf8")) as unknown;
   if (!isRecord(value)) throw new Error(`Expected a JSON object in ${path}`);
   return value;
+}
+
+function readOptionalText(path: string): string {
+  return existsSync(path) ? readFileSync(path, "utf8") : "";
 }
 
 function stringValue(value: unknown): string {
