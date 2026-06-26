@@ -23,6 +23,8 @@ jobs:
         run: node scripts/promote-v1-rc.mjs
       - name: Finalize RC assertions
         run: node scripts/finalize-v1-rc-tests.mjs
+      - name: Finalize compatibility guarantees
+        run: node scripts/finalize-v1-rc-compatibility.mjs
       - name: Synchronize lockfile
         run: npm install --package-lock-only --ignore-scripts
       - name: Generate published schema
@@ -42,7 +44,7 @@ jobs:
         run: |
           mkdir -p .rc-artifact/src .rc-artifact/tests
           cp package.json package-lock.json CHANGELOG.md V1_CONTRACT.md V1_RELEASE_PLAN.md dhal.schema.json .rc-artifact/
-          cp src/config-schema.ts .rc-artifact/src/
+          cp src/config-schema.ts src/compatibility.ts .rc-artifact/src/
           cp tests/engine.test.ts tests/release-check.test.ts .rc-artifact/tests/
       - uses: actions/upload-artifact@v4
         with:
