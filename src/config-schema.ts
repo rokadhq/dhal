@@ -1,11 +1,12 @@
 export function getDhalConfigJsonSchema(): Record<string, unknown> {
   return {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    $id: "https://dhal.dev/schemas/v0.12/dhal.schema.json",
-    title: "Dhal configuration (v0.12 beta)",
+    $id: "https://dhal.dev/schemas/v0.13/dhal.schema.json",
+    title: "Dhal configuration (schemaVersion 1, v0.13 beta)",
     type: "object",
     additionalProperties: false,
     properties: {
+      schemaVersion: { const: "1", description: "Dhal config schema contract version. v0.13 introduces schemaVersion 1 as the v1-bound config contract." },
       mode: { $ref: "#/$defs/mode" },
       trustProxy: { type: "boolean" },
       runtime: { $ref: "#/$defs/runtime" },
