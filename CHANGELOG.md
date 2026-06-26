@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1 — Project links and documentation
+
+### Changed
+
+- Set the canonical Dhal product page to `https://rokad.co/en/open-source/dhal`.
+- Added the canonical Dhal documentation URL at `https://rokad.co/en/docs/dhal`.
+- Added concise project-maintainer information about Rokad to the README.
+
 ## 1.0.0 — Stable v1
 
 ### Production hardening
