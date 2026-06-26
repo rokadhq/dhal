@@ -1,3 +1,4 @@
+import { DHAL_PACKAGE_VERSION } from "../compatibility.js";
 import type { DhalSecurityEvent, DhalTelemetry } from "../types.js";
 
 type OtelApi = typeof import("@opentelemetry/api");
@@ -20,8 +21,8 @@ export class OpenTelemetryDhalTelemetry implements DhalTelemetry {
     void this.loadApi().then((api) => {
       if (!api) return;
 
-      const tracer = api.trace.getTracer("dhal", "0.8.0");
-      const meter = api.metrics.getMeter("dhal", "0.8.0");
+      const tracer = api.trace.getTracer("dhal", DHAL_PACKAGE_VERSION);
+      const meter = api.metrics.getMeter("dhal", DHAL_PACKAGE_VERSION);
 
       const attributes = toAttributes(event, this.options.serviceName);
       const span = tracer.startSpan("dhal.inspect", { attributes });
