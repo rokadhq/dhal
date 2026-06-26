@@ -23,7 +23,7 @@ export type DhalCompatibilityMatrix = {
   };
 };
 
-export const DHAL_PACKAGE_VERSION = "0.12.0-beta.0";
+export const DHAL_PACKAGE_VERSION = "0.13.0-beta.1";
 export const DHAL_RELEASE_CHANNEL = "beta" as const;
 
 export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
@@ -126,7 +126,7 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
     publicApi: "beta-stabilizing",
     configSchema: "beta-stabilizing",
     cli: "beta-stabilizing",
-    note: "Dhal is moving toward v1. Avoid breaking public imports, config keys, and CLI names unless a migration path is provided."
+    note: "Dhal v0.13 introduces schemaVersion 1 and migration checks as the v1-bound configuration contract. Avoid breaking public imports, config keys, and CLI names unless a migration path is provided."
   }
 };
 
