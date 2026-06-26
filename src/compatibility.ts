@@ -1,3 +1,5 @@
+import packageMetadata from "../package.json";
+
 export type DhalCompatibilityStatus = "supported" | "tested" | "optional" | "experimental";
 export type DhalContractStability = "experimental" | "beta-stabilizing" | "release-candidate" | "stable";
 
@@ -24,7 +26,7 @@ export type DhalCompatibilityMatrix = {
   };
 };
 
-export const DHAL_PACKAGE_VERSION = "1.0.0";
+export const DHAL_PACKAGE_VERSION = packageMetadata.version;
 export const DHAL_RELEASE_CHANNEL = "latest" as const;
 
 export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
