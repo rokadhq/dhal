@@ -54,6 +54,7 @@ export const DHAL_V1_CLI_COMMANDS = Object.freeze([
   "readiness",
   "compat",
   "stability",
+  "release-check",
   "presets",
   "autosetup",
   "replay",
