@@ -27,6 +27,25 @@ export type DhalReleaseCheckOptions = {
   requireBuild?: boolean | undefined;
 };
 
+const REQUIRED_RELEASE_DOCUMENTS = [
+  "README.md",
+  "LICENSE",
+  "SECURITY.md",
+  "SUPPORT_POLICY.md",
+  "PRODUCTION_DEPLOYMENT.md",
+  "API_STABILITY.md",
+  "UPGRADING.md",
+  "PUBLISHING.md",
+  "RELEASE_INTEGRITY.md",
+  "CHANGELOG.md"
+] as const;
+
+const REQUIRED_RELEASE_WORKFLOWS = [
+  ".github/workflows/publish.yml",
+  ".github/workflows/v1-release-gate.yml",
+  ".github/workflows/release-assets.yml"
+] as const;
+
 export function runDhalReleaseCheck(options: DhalReleaseCheckOptions = {}): DhalReleaseCheckResult {
   const rootDir = resolve(options.rootDir ?? process.cwd());
   const target = options.target ?? "development";
@@ -60,6 +79,20 @@ export function runDhalReleaseCheck(options: DhalReleaseCheckOptions = {}): Dhal
   const schemaVersion = isRecord(schemaProperties.schemaVersion) ? schemaProperties.schemaVersion.const : undefined;
   add(findings, schemaVersion === "1", "schema.version", "Published configuration schema is schemaVersion 1.", `Unexpected schemaVersion contract: ${String(schemaVersion)}`);
 
+  const packageFiles = new Set(stringArray(packageJson.files));
+  const missingDocuments = REQUIRED_RELEASE_DOCUMENTS.filter((path) => !existsSync(resolve(rootDir, path)));
+  add(findings, missingDocuments.length === 0, "docs.required", "All required production and release documents exist.", `Missing required documents: ${missingDocuments.join(", ")}`);
+
+  const unpublishedDocuments = REQUIRED_RELEASE_DOCUMENTS.filter((path) => !packageFiles.has(path));
+  add(findings, unpublishedDocuments.length === 0, "docs.packaged", "All required production documents are included in the npm package.", `Required documents omitted from package files: ${unpublishedDocuments.join(", ")}`);
+
+  const missingWorkflows = REQUIRED_RELEASE_WORKFLOWS.filter((path) => !existsSync(resolve(rootDir, path)));
+  add(findings, missingWorkflows.length === 0, "workflows.required", "Publishing, release-gate, and release-asset workflows exist.", `Missing release workflows: ${missingWorkflows.join(", ")}`);
+
+  const scripts = isRecord(packageJson.scripts) ? packageJson.scripts : {};
+  add(findings, stringValue(scripts["verify:supply-chain"]) !== "unknown", "supply_chain.verify_script", "Supply-chain artifacts are verified by package scripts.", "Missing verify:supply-chain script.");
+  add(findings, stringValue(scripts["release:assets"]) !== "unknown", "supply_chain.asset_script", "Release assets can be generated deterministically.", "Missing release:assets script.");
+
   const directTargets = [
     packageJson.main,
     packageJson.module,
@@ -79,7 +112,7 @@ export function runDhalReleaseCheck(options: DhalReleaseCheckOptions = {}): Dhal
     });
   }
 
-  validateTarget(findings, target, packageVersion, releaseChannel);
+  validateTarget(findings, target, packageVersion, releaseChannel, packageJson, packageFiles, scripts);
 
   return {
     ok: findings.every((finding) => finding.level !== "fail"),
@@ -90,7 +123,15 @@ export function runDhalReleaseCheck(options: DhalReleaseCheckOptions = {}): Dhal
   };
 }
 
-function validateTarget(findings: DhalReleaseCheckFinding[], target: DhalReleaseTarget, version: string, releaseChannel: string): void {
+function validateTarget(
+  findings: DhalReleaseCheckFinding[],
+  target: DhalReleaseTarget,
+  version: string,
+  releaseChannel: string,
+  packageJson: Record<string, unknown>,
+  packageFiles: Set<string>,
+  scripts: Record<string, unknown>
+): void {
   if (target === "development") {
     findings.push({ code: "release.target", level: "pass", message: "Development release checks selected." });
     return;
@@ -104,6 +145,10 @@ function validateTarget(findings: DhalReleaseCheckFinding[], target: DhalRelease
 
   add(findings, /^1\.\d+\.\d+$/.test(version), "release.version", "Version is a stable v1 release.", `Stable target requires 1.x.y without a prerelease suffix; found ${version}.`);
   add(findings, releaseChannel === "latest", "release.channel", "Release channel is latest.", `Stable target requires release channel latest; found ${releaseChannel}.`);
+  add(findings, !stringValue(packageJson.description).toLowerCase().includes("release-candidate"), "stable.description", "Package description is stable-release language.", "Stable package description still contains release-candidate language.");
+  add(findings, !packageFiles.has("ALPHA.md") && !packageFiles.has("BETA.md"), "stable.package_files", "Prerelease guidance is excluded from the stable package.", "Stable package files still include ALPHA.md or BETA.md.");
+  add(findings, stringValue(scripts["release:check"]).includes("--target stable"), "stable.default_check", "Default release check targets stable.", "Default release:check script does not target stable.");
+  add(findings, !stringValue(scripts["publish:ci"]).includes("--tag rc"), "stable.publish_tag", "CI publishing no longer pins the rc tag.", "Stable publish:ci script still pins the rc dist-tag.");
 }
 
 function add(findings: DhalReleaseCheckFinding[], condition: boolean, code: string, pass: string, fail: string): void {
@@ -122,6 +167,10 @@ function readJson(path: string): Record<string, unknown> {
   const value = JSON.parse(readFileSync(path, "utf8")) as unknown;
   if (!isRecord(value)) throw new Error(`Expected a JSON object in ${path}`);
   return value;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
 }
 
 function stringValue(value: unknown): string {
