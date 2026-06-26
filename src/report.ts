@@ -19,6 +19,7 @@ export type DhalSupportReport = {
     arch: string;
   };
   config: {
+    schemaVersion: DhalConfig["schemaVersion"];
     mode: DhalConfig["mode"];
     trustProxy: boolean;
     routeProfiles: number;
@@ -68,6 +69,7 @@ export function runDhalSupportReport(options: DhalSupportReportOptions = {}): Dh
       arch: process.arch
     },
     config: {
+      schemaVersion: config.schemaVersion,
       mode: config.mode,
       trustProxy: config.trustProxy,
       routeProfiles: Object.keys(config.routes).length,
