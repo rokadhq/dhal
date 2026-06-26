@@ -5,6 +5,8 @@ import { extractIdentity } from "../utils/identity.js";
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 
 const normalizedRequestSymbol = Symbol("dhal.normalizedRequest");
+const skipOverrideSymbol = Symbol.for("skip-override");
+const displayNameSymbol = Symbol.for("fastify.display-name");
 
 type DhalFastifyRequest = FastifyRequest & {
   rawBody?: string | Buffer | undefined;
@@ -23,7 +25,7 @@ export function dhalFastify(options?: DhalOptions): FastifyPluginAsync {
 }
 
 export function dhalFastifyFromEngine(engine: DhalEngine): FastifyPluginAsync {
-  return async function dhalFastifyPlugin(fastify): Promise<void> {
+  const plugin: FastifyPluginAsync = async function dhalFastifyPlugin(fastify): Promise<void> {
     fastify.addHook("preHandler", async (request: FastifyRequest, reply: FastifyReply) => {
       const typedRequest = request as DhalFastifyRequest;
       const normalized = normalizeFastifyRequest(typedRequest, engine);
@@ -52,6 +54,12 @@ export function dhalFastifyFromEngine(engine: DhalEngine): FastifyPluginAsync {
       }
     });
   };
+
+  // Match fastify-plugin's non-encapsulated behavior without adding a runtime dependency.
+  // This makes `await app.register(dhalFastify())` protect routes registered on the root app.
+  Object.defineProperty(plugin, skipOverrideSymbol, { value: true });
+  Object.defineProperty(plugin, displayNameSymbol, { value: "dhal" });
+  return plugin;
 }
 
 function normalizeFastifyRequest(req: DhalFastifyRequest, engine: DhalEngine): DhalRequest {
