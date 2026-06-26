@@ -115,6 +115,11 @@
       "types": "./dist/stability.d.ts",
       "import": "./dist/stability.js",
       "require": "./dist/stability.cjs"
+    },
+    "./v1-contract": {
+      "types": "./dist/v1-contract.d.ts",
+      "import": "./dist/v1-contract.js",
+      "require": "./dist/v1-contract.cjs"
     }
   },
   "files": [
@@ -132,10 +137,11 @@
     "API_STABILITY.md",
     "UPGRADING.md",
     "PUBLISHING.md",
-    "V1_CONTRACT.md"
+    "V1_CONTRACT.md",
+    "V1_RELEASE_PLAN.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/cli.ts src/config-schema.ts src/doctor.ts src/rules/catalog.ts src/presets.ts src/report.ts src/readiness.ts src/compatibility.ts src/stability.ts src/migrations.ts src/adapters/express.ts src/adapters/fastify.ts src/adapters/node-http.ts src/stores/redis-rate-limit-store.ts src/stores/redis-signal-store.ts src/stores/memory-signal-store.ts src/reputation/abuseipdb.ts src/telemetry/otel.ts src/telemetry/webhook.ts src/autosetup/index.ts --format esm,cjs --dts --clean",
+    "build": "tsup src/index.ts src/cli.ts src/config-schema.ts src/doctor.ts src/rules/catalog.ts src/presets.ts src/report.ts src/readiness.ts src/compatibility.ts src/stability.ts src/migrations.ts src/v1-contract.ts src/adapters/express.ts src/adapters/fastify.ts src/adapters/node-http.ts src/stores/redis-rate-limit-store.ts src/stores/redis-signal-store.ts src/stores/memory-signal-store.ts src/reputation/abuseipdb.ts src/telemetry/otel.ts src/telemetry/webhook.ts src/autosetup/index.ts --format esm,cjs --dts --clean",
     "typecheck": "tsc --noEmit",
     "dev:express": "tsx examples/express.ts",
     "dev:fastify": "tsx examples/fastify.ts",
@@ -144,7 +150,8 @@
     "benchmark": "tsx bench/bench.ts",
     "schema": "tsx src/cli.ts schema dhal.schema.json",
     "ci:config": "tsx src/cli.ts ci",
-    "verify:publish": "npm run typecheck && npm test && npm run build && npm run schema && npm run ci:config && npm run simulate && npm audit --omit=dev",
+    "verify:exports": "node scripts/verify-package-exports.mjs",
+    "verify:publish": "npm run typecheck && npm test && npm run build && npm run schema && npm run verify:exports && npm run ci:config && npm run simulate && npm audit --omit=dev",
     "pack:dry": "npm pack --dry-run",
     "pack:release": "npm run verify:publish && npm pack",
     "prepublishOnly": "npm run verify:publish",
