@@ -49,7 +49,7 @@ jobs:
         run: npm audit --omit=dev
       - name: Verify packed ESM, CommonJS, and TypeScript consumers
         run: npm run verify:packed
-      - name: Verify development release contract
+      - name: Verify RC release contract
         run: npm run release:check
 
   framework-matrix:
