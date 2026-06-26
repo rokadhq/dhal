@@ -1,67 +1,32 @@
 # Dhal
 
-Dhal is an app-native WAF, bot-defense, policy-control, and request security middleware for Node.js applications.
+**App-native web application firewall and request-security middleware for Node.js.**
 
-It sits inside the application request path and provides deterministic controls such as IP allow/block lists, CIDR matching, rate limiting, route-aware policies, attack signatures, IP reputation checks, bot detection, credential-stuffing signals, honeypot canaries, webhooks, OpenTelemetry hooks, CI checks, false-positive replay, and AI-assisted autosetup.
+Dhal runs inside the application request path and provides deterministic, route-aware controls for Express, Fastify, and raw `node:http` applications.
 
-Dhal complements CDN/edge/network WAFs. It does not replace upstream DDoS or bandwidth-exhaustion protection.
+It includes:
 
-## v0.12 beta / v1-readiness focus
+- IP allow/block lists with IPv4 and IPv6 CIDR matching;
+- distributed rate limiting through Redis or Valkey;
+- SQL injection, XSS, path traversal, SSRF, RCE, SSTI, GraphQL, and probe signatures;
+- bot and automation detection with false-positive controls;
+- credential-stuffing signals and shared failure counters;
+- honeypot and canary routes;
+- JSON API positive-security controls;
+- route-level modes, rules, limits, responses, and suppressions;
+- OpenTelemetry and signed webhook integrations;
+- configuration diagnostics, readiness scoring, replay tests, and CI policy checks;
+- stable ESM, CommonJS, TypeScript, CLI, and `dhal.json` contracts.
 
-Dhal v0.12 moves the project from alpha-public hardening toward a v1 release track. It adds a compatibility matrix, v1-readiness scoring, a public readiness API, and workflow updates that resolve prerelease dist-tags automatically for alpha, beta, rc, next, and latest releases.
+Dhal complements CDN, edge, network, and infrastructure security controls. It does not replace volumetric DDoS protection, authentication, authorization, or application input validation.
 
-Use the beta tag explicitly:
+## Requirements
 
-```bash
-npm install @rokadhq/dhal@beta
-npx dhal readiness --production
-npx dhal compat
-```
+- Node.js 20 or newer
+- npm 10 or another modern package manager
+- Redis or Valkey for shared counters in horizontally scaled deployments
 
-The public API, config shape, and CLI are now treated as beta-stabilizing. Breaking changes before v1 should come with migration notes and explicit release guidance.
-
-## v0.11 alpha-public focus
-
-Dhal v0.11 alpha-public hardens the package for real public usage. It adds runtime failure policy controls, health-check/preflight bypasses, privacy-first observability redaction, support-report generation, and stronger diagnostics for production installs.
-
-The package remains pre-1.0. Treat the public API as usable but not frozen. Production users should pin versions, start in `monitor`, use `dhal replay` for false-positive regression tests, and move specific routes to `block` only after review.
-
-## v0.10 focus
-
-Dhal v0.10 is the production-onboarding release. It adds reviewable config presets through `dhal presets`, public preset APIs, and safer upgrade paths from monitor mode to route-level blocking. The goal is to help teams move from “installed” to “production-shaped policy” without hiding behavior behind magic defaults.
-
-## v0.9 focus
-
-Dhal v0.9 standardized the scoped package identity `@rokadhq/dhal`, added `dhal doctor` for production-readiness diagnostics, exposed a built-in rule catalog through `dhal rules`, and added public API exports for rule/catalog and doctor tooling.
-
-Dhal remains product-named **Dhal**. The npm package is `@rokadhq/dhal`, the CLI command is `dhal`, and the config file is `dhal.json`.
-
-## v0.7 feature baseline
-
-Dhal v0.7 added rule-quality and setup automation:
-
-- rule packs: `generic-web`, `api`, `auth`, `wordpress`, `strict-api`
-- confidence metadata on signature/header/API decisions
-- SSRF, RCE, GraphQL introspection, SSTI, and WordPress probe signatures
-- positive security model for JSON APIs
-- header anomaly detection
-- JSON Content-Type/body mismatch checks
-- IPv4 and IPv6 CIDR allow/block support
-- false-positive replay harness through `dhal replay`
-- AI-assisted autosetup through `dhal autosetup`, powered by the optional Vercel AI SDK `ai` package
-
-
-## Publish readiness
-
-This package includes a publish checklist and release scripts:
-
-```bash
-npm run verify:publish
-npm run pack:dry
-npm publish --tag beta --access public
-```
-
-GitHub Actions publish workflows resolve dist-tags automatically: prerelease alpha versions publish under `alpha`, beta under `beta`, release candidates under `rc`, pre-1.0 non-prereleases under `next`, and v1+ releases under `latest`. See `PUBLISHING.md` before release.
+Dhal validates Node.js 20, 22, and 24, Express 4 and 5, Fastify 4 and 5, Redis 7, and Valkey 8 in its release matrix.
 
 ## Install
 
@@ -69,13 +34,7 @@ GitHub Actions publish workflows resolve dist-tags automatically: prerelease alp
 npm install @rokadhq/dhal
 ```
 
-Optional AI autosetup dependencies:
-
-```bash
-npm install ai @ai-sdk/openai
-```
-
-Or use Vercel AI Gateway with the `ai` package only, depending on your AI SDK setup.
+The package name is `@rokadhq/dhal`, the CLI is `dhal`, and the configuration file is `dhal.json`.
 
 ## Express
 
@@ -86,16 +45,16 @@ import { dhal } from "@rokadhq/dhal/express";
 const app = express();
 
 app.use(express.json({ limit: "1mb" }));
-app.use(dhal());
+app.use(dhal({ configPath: "dhal.json" }));
 
-app.post("/api/login", (req, res) => {
-  res.status(401).json({ error: "bad credentials" });
+app.post("/api/login", (_req, res) => {
+  res.status(401).json({ error: "invalid credentials" });
 });
 
 app.listen(3000);
 ```
 
-The Express adapter records response status codes after the request finishes. That allows credential-stuffing protection to learn from repeated 401/403 login failures and block later attempts.
+The Express adapter records response outcomes after the request completes, allowing credential-stuffing controls to learn from repeated authentication failures.
 
 ## Fastify
 
@@ -105,267 +64,109 @@ import { dhalFastify } from "@rokadhq/dhal/fastify";
 
 const app = Fastify();
 
-await app.register(dhalFastify());
+await app.register(dhalFastify({ configPath: "dhal.json" }));
 
-app.get("/", async () => ({ ok: true }));
+app.get("/health", async () => ({ ok: true }));
 
 await app.listen({ port: 3000 });
 ```
 
-## Raw node:http
+Normal plugin registration protects routes registered on the root Fastify instance.
+
+## Raw `node:http`
 
 ```ts
 import http from "node:http";
 import { createNodeHttpDhal } from "@rokadhq/dhal/node-http";
 
-const dhal = createNodeHttpDhal();
+const protection = createNodeHttpDhal({ configPath: "dhal.json" });
 
 const server = http.createServer(async (req, res) => {
-  const decision = await dhal.inspect(req, res);
+  const decision = await protection.inspect(req, res);
   if (decision.action === "block") return;
 
+  res.statusCode = 200;
   res.end("ok");
 });
 
 server.listen(3000);
 ```
 
-## CLI
+## Start safely
 
-Create a starter config:
+Create a starter configuration:
 
 ```bash
 npx dhal init
 ```
 
-Validate config:
-
-```bash
-npx dhal test-config
-```
-
-Run production-readiness diagnostics:
-
-```bash
-npx dhal doctor
-```
-
-Score v1 readiness for a production target:
-
-```bash
-npx dhal readiness --production
-```
-
-Print supported runtimes, framework adapters, integrations, and stability status:
-
-```bash
-npx dhal compat
-```
-
-List the effective rule catalog:
-
-```bash
-npx dhal rules
-```
-
-Generate a redacted support report for debugging installs:
-
-```bash
-npx dhal report --output dhal.report.json
-```
-
-List production-ready config presets:
-
-```bash
-npx dhal presets
-```
-
-Inspect a preset before applying it:
-
-```bash
-npx dhal presets show api-production
-```
-
-Write a preset-merged config to a review file:
-
-```bash
-npx dhal presets apply api-production --output dhal.production.json
-```
-
-Apply a preset directly to `dhal.json`:
-
-```bash
-npx dhal presets apply auth-hardened --write
-```
-## Runtime safety controls
-
-Dhal defaults to availability-first behavior for alpha/public usage:
+A minimal production-onboarding configuration begins in monitor mode:
 
 ```json
 {
+  "schemaVersion": "1",
+  "mode": "monitor",
+  "trustProxy": false,
   "runtime": {
     "onInternalError": "allow",
     "internalErrorStatusCode": 500,
     "maxInspectionMs": 25,
     "bypass": {
       "enabled": true,
-      "paths": ["/health", "/healthz", "/ready", "/readyz", "/live", "/livez"],
+      "paths": ["/health", "/healthz", "/ready", "/readyz"],
       "methods": ["OPTIONS"]
     }
-  }
-}
-```
-
-For hardened internal APIs, you can set `runtime.onInternalError` to `block`, but test that with `dhal simulate`, `dhal replay`, and `dhal doctor` before rollout.
-
-## Privacy-first observability
-
-Security logs and events are useful, but they can contain sensitive operational data. Dhal now redacts observability payloads by default:
-
-```json
-{
-  "observability": {
-    "redaction": {
-      "enabled": true,
-      "ip": "mask",
-      "identity": "hash",
-      "userAgent": "full"
-    }
-  }
-}
-```
-
-This affects Dhal security events, logs, telemetry payloads, and support reports. The request path and route are preserved for debugging; IP and identity keys are masked or hashed depending on config.
-
-## Config presets
-
-Presets are named, reviewable config overlays. They do not replace `dhal.json`; they help create a safer starting policy for common deployment shapes.
-
-Available presets:
-
-- `starter` — monitor-mode baseline for first installs
-- `api-production` — JSON API baseline with Redis/Valkey, trusted proxy assumptions, OTel-ready settings, and enforcing route profiles
-- `auth-hardened` — login/auth route hardening and credential-stuffing controls
-- `strict-json-api` — positive-security model for APIs that should only accept JSON request bodies
-- `behind-proxy` — deployment baseline for CDN/reverse-proxy/ingress setups
-- `observability` — OpenTelemetry and signed-webhook-ready telemetry settings
-
-Programmatic usage:
-
-```ts
-import { applyDhalPreset, getDhalPreset, listDhalPresets } from "@rokadhq/dhal";
-
-const presets = listDhalPresets();
-const apiPreset = getDhalPreset("api-production");
-const config = applyDhalPreset({}, apiPreset.name);
-```
-
-## AI-assisted autosetup
-
-Autosetup scans your Node project, detects framework hints and routes, builds a deterministic security proposal, and can optionally ask an AI SDK model to refine the config.
-
-Dry-run, deterministic only:
-
-```bash
-npx dhal autosetup . --no-ai --json
-```
-
-AI-assisted proposal using AI Gateway/global provider model strings:
-
-```bash
-AI_GATEWAY_API_KEY=... npx dhal autosetup . \
-  --provider gateway \
-  --model openai/gpt-4.1-mini \
-  --json
-```
-
-OpenAI provider package:
-
-```bash
-OPENAI_API_KEY=... npx dhal autosetup . \
-  --provider openai \
-  --model gpt-4.1-mini \
-  --json
-```
-
-Write the merged config:
-
-```bash
-npx dhal autosetup . --no-ai --write
-```
-
-Write to a separate review file:
-
-```bash
-npx dhal autosetup . --no-ai --write --output dhal.proposed.json
-```
-
-Custom provider module:
-
-```bash
-npx dhal autosetup . \
-  --provider custom \
-  --provider-module ./security-ai-provider.js \
-  --provider-export createModel \
-  --model company/security-model-v1
-```
-
-Autosetup does not inline secrets. API keys should stay in provider-specific environment variables.
-
-## Rule packs
-
-```json
-{
-  "rules": {
-    "packs": ["generic-web", "api", "auth"],
-    "api": {
-      "enabled": true,
-      "requireJsonContentType": true,
-      "allowedContentTypes": ["application/json", "application/problem+json"],
-      "methodsWithBody": ["POST", "PUT", "PATCH"],
-      "maxJsonDepth": 20,
-      "maxJsonKeys": 500
+  },
+  "rateLimit": {
+    "enabled": true,
+    "store": "memory",
+    "keyBy": ["ip", "route"],
+    "default": {
+      "windowSeconds": 60,
+      "max": 120
     },
-    "headers": {
-      "enabled": true,
-      "requireHostHeader": true,
-      "maxHeaderCount": 96,
-      "maxHeaderBytes": 16384,
-      "suspiciousHeaders": ["x-original-url", "x-rewrite-url"],
-      "blockConflictingForwardingHeaders": false
-    },
-    "contentType": {
-      "enabled": true,
-      "blockMissingOnBodyMethods": false,
-      "blockJsonMismatch": true,
-      "allowedJsonMimeTypes": ["application/json", "application/problem+json"]
-    }
+    "routes": {}
   }
 }
 ```
 
-Each matching decision can include `meta.confidence`, giving downstream SIEM/agent workflows more context for triage.
+Recommended rollout:
+
+1. deploy globally in `monitor` mode;
+2. replay known-good requests and review `wouldBlock` events;
+3. enable `block` on selected high-risk routes;
+4. validate latency, false positives, and backend availability;
+5. expand enforcement gradually.
+
+Run before enabling enforcement:
+
+```bash
+npx dhal test-config
+npx dhal migrate --check
+npx dhal doctor
+npx dhal readiness --production
+npx dhal replay fixtures.replay.json
+```
 
 ## Modes
 
-```txt
+```text
 off      disables inspection
-monitor  logs what Dhal would block, but allows the request
+monitor  records what Dhal would block while allowing the request
 block    actively blocks matching requests
-strict   blocks on internal evaluation errors
+strict   blocks when internal security evaluation fails
 ```
 
-Route profiles may override the global mode. A common production setup is global `monitor` with selected high-risk routes set to `block`.
-
-## Route-aware profiles
+Route profiles may override the global mode.
 
 ```json
 {
+  "schemaVersion": "1",
   "mode": "monitor",
   "routes": {
     "/api/login": {
       "mode": "block",
-      "tags": ["auth", "credential-stuffing"],
+      "tags": ["authentication"],
       "rateLimit": {
         "enabled": true,
         "windowSeconds": 60,
@@ -380,63 +181,252 @@ Route profiles may override the global mode. A common production setup is global
           "keyBy": ["ip", "route", "userAgent"]
         }
       }
-    },
-    "/api/private/*": {
-      "mode": "block",
-      "rateLimit": {
-        "enabled": true,
-        "windowSeconds": 60,
-        "max": 30,
-        "keyBy": ["tenantId", "apiKeyId", "route"]
-      }
     }
   }
 }
 ```
 
-## Policy controls
+## Multi-instance deployments
 
-### Severity mapping
+Use Redis or Valkey when multiple application instances protect the same routes.
+
+```ts
+import Redis from "ioredis";
+import {
+  RedisRateLimitStore,
+  RedisSignalStore,
+  createDhal
+} from "@rokadhq/dhal";
+
+const redis = new Redis(process.env.REDIS_URL!);
+
+const protection = createDhal({
+  configPath: "dhal.json",
+  rateLimitStore: new RedisRateLimitStore(redis, {
+    prefix: "production:dhal:rate-limit"
+  }),
+  signalStore: new RedisSignalStore(redis, {
+    prefix: "production:dhal:signals"
+  })
+});
+```
+
+Stable v1 refuses to start an enforcing deployment that declares Redis-backed rate limiting without receiving a distributed rate-limit store. It also refuses to start an enforcing blocking-reputation configuration without an available provider.
+
+This prevents silent downgrade to weaker per-instance or unavailable controls.
+
+## Graceful shutdown
+
+Managed telemetry should be drained before process termination.
+
+```ts
+import { createDhal } from "@rokadhq/dhal";
+
+const protection = createDhal({ configPath: "dhal.json" });
+
+async function shutdown(signal: string) {
+  console.log(`Received ${signal}; draining Dhal.`);
+  await protection.close(5_000);
+  process.exit(0);
+}
+
+process.once("SIGTERM", () => void shutdown("SIGTERM"));
+process.once("SIGINT", () => void shutdown("SIGINT"));
+```
+
+Available lifecycle methods:
+
+- `flush(timeoutMs?)` drains current managed telemetry;
+- `close(timeoutMs?)` stops new inspections, drains telemetry, and removes event listeners;
+- `getRuntimeSnapshot()` returns operational counters and telemetry health.
+
+```ts
+const snapshot = protection.getRuntimeSnapshot();
+
+console.log({
+  inspected: snapshot.inspected,
+  blocked: snapshot.blocked,
+  wouldBlock: snapshot.wouldBlock,
+  internalErrors: snapshot.internalErrors,
+  eventListenerErrors: snapshot.eventListenerErrors,
+  pendingTelemetry: snapshot.telemetry?.pending,
+  droppedTelemetry: snapshot.telemetry?.dropped
+});
+```
+
+Application event-listener and synchronous telemetry failures are isolated from request decisions.
+
+## Observability and privacy
+
+Dhal masks or hashes sensitive observability fields by default.
 
 ```json
 {
-  "policy": {
-    "severity": {
-      "default": "low",
-      "categories": {
-        "honeypot": "critical",
-        "credential_stuffing": "high",
-        "signature": "high",
-        "rate_limit": "medium"
-      },
-      "rules": {
-        "signature.path_traversal": "critical",
-        "honeypot.triggered": "critical"
+  "observability": {
+    "redaction": {
+      "enabled": true,
+      "ip": "mask",
+      "identity": "hash",
+      "userAgent": "full"
+    }
+  }
+}
+```
+
+Signed webhook telemetry:
+
+```json
+{
+  "observability": {
+    "webhooks": {
+      "enabled": true,
+      "urls": ["https://security.example.com/dhal/events"],
+      "timeoutMs": 750,
+      "emitAllowedRequests": false,
+      "signing": {
+        "enabled": true,
+        "secretEnv": "DHAL_WEBHOOK_SECRET",
+        "signatureHeader": "x-dhal-signature",
+        "timestampHeader": "x-dhal-timestamp",
+        "idHeader": "x-dhal-event-id"
       }
     }
   }
 }
 ```
 
-### Rule suppressions
+Webhook delivery is bounded to protect application memory. Non-2xx responses count as failed deliveries. Pending deliveries can be drained through `flush()` or `close()`.
 
-Suppressions are explicit, auditable exceptions. Prefer narrow matchers and `expiresAt`.
+## CLI
+
+```bash
+npx dhal init
+npx dhal test-config
+npx dhal migrate --check
+npx dhal doctor
+npx dhal readiness --production
+npx dhal compat
+npx dhal stability
+npx dhal rules
+npx dhal presets
+npx dhal replay fixtures.replay.json
+npx dhal simulate fixtures.simulation.json
+npx dhal report --output dhal.report.json
+npx dhal release-check --target stable --require-build
+```
+
+## Presets
+
+Reviewable configuration presets include:
+
+- `starter`
+- `api-production`
+- `auth-hardened`
+- `strict-json-api`
+- `behind-proxy`
+- `observability`
+
+```bash
+npx dhal presets show api-production
+npx dhal presets apply api-production --output dhal.production.json
+```
+
+Presets are configuration overlays, not hidden runtime behavior. Review the generated file before deployment.
+
+## False-positive controls
+
+Use monitor mode, route-scoped rules, bot signal thresholds, narrow suppressions, and replay fixtures.
 
 ```json
 {
   "policy": {
     "suppressions": [
       {
-        "id": "known-validation-scanner",
+        "id": "approved-validation-scanner",
         "enabled": true,
         "ruleId": "honeypot.triggered",
-        "path": "/.well-known/test-canary",
-        "reason": "temporary validation scanner",
-        "expiresAt": "2999-01-01T00:00:00.000Z"
+        "path": "/.well-known/security-canary",
+        "reason": "approved internal validation scanner",
+        "expiresAt": "2027-01-01T00:00:00.000Z"
       }
     ]
   }
 }
 ```
 
-A suppressed block becomes `action: "allow"` with `wouldBlock: true`, `meta.suppressed: true`, and audit metadata.
+Suppressions remain visible in audit metadata. Prefer narrow matchers and expiry dates.
+
+## Stable v1 contract
+
+The stable package, CLI, and configuration inventories are machine-readable:
+
+```ts
+import {
+  DHAL_V1_PUBLIC_EXPORTS,
+  DHAL_V1_CLI_COMMANDS,
+  getDhalV1Contract,
+  validateDhalV1Contract
+} from "@rokadhq/dhal/v1-contract";
+```
+
+Within v1.x:
+
+- stable exports will not be removed or renamed;
+- stable CLI commands remain available;
+- schema version `1` remains backward compatible;
+- deprecated APIs receive migration guidance before major-version removal;
+- experimental APIs may evolve while explicitly marked experimental.
+
+AI-assisted autosetup remains experimental.
+
+## Release integrity
+
+Every stable release is validated across:
+
+- Node.js 20, 22, and 24;
+- Express 4 and 5;
+- Fastify 4 and 5;
+- raw `node:http`;
+- Redis 7 and Valkey 8;
+- ESM, CommonJS, and TypeScript package consumers;
+- packed-tarball installation;
+- latency, throughput, and heap-growth budgets;
+- SBOM and SHA-256 release-asset generation.
+
+GitHub releases include a package tarball, CycloneDX SBOM, `SHA256SUMS`, and a release manifest.
+
+## Security boundary
+
+Dhal runs inside the Node.js application process. It cannot prevent bandwidth exhaustion, TLS-handshake exhaustion, kernel/socket exhaustion, or infrastructure failure before application execution.
+
+Use it as part of defense in depth with:
+
+- CDN and edge controls;
+- DDoS protection;
+- trusted reverse proxies;
+- network policies and firewalls;
+- secrets management;
+- authentication and authorization;
+- application validation;
+- centralized monitoring and incident response.
+
+## Documentation
+
+- `PRODUCTION_DEPLOYMENT.md`
+- `SECURITY.md`
+- `SUPPORT_POLICY.md`
+- `API_STABILITY.md`
+- `UPGRADING.md`
+- `PUBLISHING.md`
+- `RELEASE_INTEGRITY.md`
+- `V1_READINESS.md`
+
+## Support
+
+Use GitHub Issues for reproducible defects and GitHub Discussions for integration questions. Report vulnerabilities privately through GitHub Security Advisories.
+
+See `SUPPORT_POLICY.md` for supported release lines, deprecation commitments, and response targets.
+
+## License
+
+MIT
