@@ -21,6 +21,8 @@ jobs:
       - run: npm ci
       - name: Promote metadata
         run: node scripts/promote-v1-rc.mjs
+      - name: Finalize RC assertions
+        run: node scripts/finalize-v1-rc-tests.mjs
       - name: Synchronize lockfile
         run: npm install --package-lock-only --ignore-scripts
       - name: Generate published schema
