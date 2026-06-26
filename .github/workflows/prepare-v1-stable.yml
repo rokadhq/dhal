@@ -1,0 +1,40 @@
+name: Prepare verified Dhal v1 stable tree
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'release/v1.0.0'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/v1.0.0
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: node scripts/promote-v1-stable.mjs
+      - run: npm install --package-lock-only --ignore-scripts
+      - run: npm run schema
+      - run: npm run verify:v1
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automation/v1.0.0-stable-preparation
+          base: release/v1.0.0
+          commit-message: "release: prepare v1.0.0"
+          title: "release: prepare Dhal v1.0.0"
+          body: "Automated commit containing the fully verified stable v1 metadata, lockfile, schema, tests, changelog, and release documentation."
+          delete-branch: true
