@@ -1,6 +1,6 @@
 # API stability
 
-Dhal `1.0.0-rc.0` freezes the public v1 contract for release-candidate validation.
+Dhal `1.0.0` is the stable public v1 contract.
 
 The authoritative machine-readable contract is available from:
 
@@ -31,7 +31,7 @@ The product name remains Dhal. The CLI remains `dhal`. The configuration file re
 
 ## Compatibility policy
 
-During the RC phase, defects may be fixed without changing the declared stable contract. Within the stable v1 line:
+Within the stable v1 line:
 
 - stable exports must not be removed or renamed without a major release;
 - stable CLI command names remain available throughout v1.x;

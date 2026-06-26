@@ -1,10 +1,25 @@
-import { F as DhalTelemetry, f as DhalConfig, A as DhalSecurityEvent } from '../types-C1dYoaci.js';
+import { f as DhalConfig, A as DhalSecurityEvent } from '../types-C1dYoaci.js';
+import { D as DhalManagedTelemetry, a as DhalTelemetryHealth } from '../lifecycle-Cev1XJUh.js';
 
-declare class WebhookDhalTelemetry implements DhalTelemetry {
+type WebhookDhalTelemetryOptions = {
+    maxPending?: number;
+    defaultFlushTimeoutMs?: number;
+};
+declare class WebhookDhalTelemetry implements DhalManagedTelemetry {
     private readonly config;
-    constructor(config: DhalConfig["observability"]["webhooks"]);
+    private readonly pending;
+    private readonly maxPending;
+    private readonly defaultFlushTimeoutMs;
+    private delivered;
+    private failed;
+    private dropped;
+    private closed;
+    constructor(config: DhalConfig["observability"]["webhooks"], options?: WebhookDhalTelemetryOptions);
     recordDecision(event: DhalSecurityEvent): void;
+    flush(timeoutMs?: number): Promise<void>;
+    close(timeoutMs?: number): Promise<void>;
+    getHealth(): DhalTelemetryHealth;
     private send;
 }
 
-export { WebhookDhalTelemetry };
+export { WebhookDhalTelemetry, type WebhookDhalTelemetryOptions };

@@ -12,7 +12,7 @@ npm run verify:v1
 npm pack --dry-run
 ```
 
-For the current release candidate, the unified release check must report `target: "rc"`, package version `1.0.0-rc.0`, and release channel `rc`.
+For stable v1, the unified release check must report `target: "stable"`, package version `1.0.0`, and release channel `latest`.
 
 ## CI publishing with Trusted Publishing
 
@@ -37,11 +37,11 @@ Resolved tags:
 | other `0.x` | `next` |
 | stable `1.x+` | `latest` |
 
-For `1.0.0-rc.0`, publishing produces:
+For `1.0.0`, publishing produces:
 
 ```text
-@rokadhq/dhal@1.0.0-rc.0
-npm dist-tag: rc
+@rokadhq/dhal@1.0.0
+npm dist-tag: latest
 ```
 
 ## Manual local publishing
@@ -51,7 +51,7 @@ Local publishing should be limited to recovery scenarios. It does not provide np
 ```bash
 npm ci
 npm run verify:v1
-npm publish --tag rc --access public --provenance=false
+npm publish --tag latest --access public --provenance=false
 ```
 
 Do not pass `--provenance` from a normal local terminal. Local shells do not provide the OIDC metadata required for trusted provenance.

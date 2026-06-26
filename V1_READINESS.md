@@ -1,6 +1,6 @@
 # Dhal v1 readiness
 
-Dhal `1.0.0-rc.0` is the release-candidate validation line for the first stable `1.0.0` release.
+Dhal `1.0.0` is the first stable production release.
 
 V1 readiness is defined by operational confidence, not only feature completeness. The enforced release gate covers:
 
@@ -42,4 +42,4 @@ npm run release:check
 npm pack --dry-run
 ```
 
-Stable `1.0.0` must pass the same release matrix with the package version and release channel promoted from `rc` to `latest`.
+Every v1.x release must pass the same release matrix and stable release target.

@@ -1,14 +1,16 @@
-export { a as DhalEventBus, c as createDhal } from './engine-BeMQe4lr.js';
+export { D as DhalEngine, a as DhalEventBus, b as DhalEventListenerError, c as DhalRuntimeSnapshot, d as createDhal } from './engine-CINpdFdb.js';
 export { D as DHAL_CONFIG_SCHEMA_VERSION, a as DhalMigrationNotice, b as DhalMigrationPlan, c as DhalMigrationResult, d as defaultConfig, g as getDhalMigrationPlan, l as loadDhalConfig, m as migrateDhalConfig } from './migrations-LoEzZ9xC.js';
 export { getDhalConfigJsonSchema } from './config-schema.js';
-import { R as RateLimitStore, s as DhalRateLimitConfig, G as IpReputationResult, F as DhalTelemetry, A as DhalSecurityEvent, k as DhalDecision, t as DhalRequest, f as DhalConfig, v as DhalRouteProfile, C as DhalSeverity, i as DhalCredentialStuffingKey } from './types-C1dYoaci.js';
-export { D as DhalAction, a as DhalApiPositiveSecurityConfig, b as DhalAuditExplanation, c as DhalAutosetupOptions, d as DhalAutosetupProvider, e as DhalBotRuleConfig, g as DhalConfigSchemaVersion, h as DhalContentTypeConfig, j as DhalCredentialStuffingRuleConfig, l as DhalHeaderAnomalyConfig, m as DhalHeaders, n as DhalHoneypotRuleConfig, o as DhalIdentityKey, p as DhalMode, q as DhalOptions, r as DhalPolicyConfig, u as DhalResponseOutcome, w as DhalRuleConfig, x as DhalRulePackName, y as DhalRuleSuppression, z as DhalSamplingConfig, B as DhalSecuritySignal, E as DhalSignalStore, I as IpReputationProvider } from './types-C1dYoaci.js';
+import { R as RateLimitStore, s as DhalRateLimitConfig, G as IpReputationResult, A as DhalSecurityEvent, k as DhalDecision, t as DhalRequest, f as DhalConfig, v as DhalRouteProfile, C as DhalSeverity, i as DhalCredentialStuffingKey } from './types-C1dYoaci.js';
+export { D as DhalAction, a as DhalApiPositiveSecurityConfig, b as DhalAuditExplanation, c as DhalAutosetupOptions, d as DhalAutosetupProvider, e as DhalBotRuleConfig, g as DhalConfigSchemaVersion, h as DhalContentTypeConfig, j as DhalCredentialStuffingRuleConfig, l as DhalHeaderAnomalyConfig, m as DhalHeaders, n as DhalHoneypotRuleConfig, o as DhalIdentityKey, p as DhalMode, q as DhalOptions, r as DhalPolicyConfig, u as DhalResponseOutcome, w as DhalRuleConfig, x as DhalRulePackName, y as DhalRuleSuppression, z as DhalSamplingConfig, B as DhalSecuritySignal, E as DhalSignalStore, F as DhalTelemetry, I as IpReputationProvider } from './types-C1dYoaci.js';
 export { MemorySignalStore } from './stores/memory-signal-store.js';
 export { RedisLikeClient, RedisRateLimitStore } from './stores/redis-rate-limit-store.js';
 export { RedisSignalLikeClient, RedisSignalStore } from './stores/redis-signal-store.js';
 export { AbuseIpDbProvider, createAbuseIpDbProviderFromConfig } from './reputation/abuseipdb.js';
+import { D as DhalManagedTelemetry, a as DhalTelemetryHealth } from './lifecycle-Cev1XJUh.js';
+export { c as closeDhalTelemetry, f as flushDhalTelemetry, g as getDhalTelemetryHealth } from './lifecycle-Cev1XJUh.js';
 export { OpenTelemetryDhalTelemetry } from './telemetry/otel.js';
-export { WebhookDhalTelemetry } from './telemetry/webhook.js';
+export { WebhookDhalTelemetry, WebhookDhalTelemetryOptions } from './telemetry/webhook.js';
 export { D as DhalDoctorFinding, a as DhalDoctorOptions, b as DhalDoctorResult, e as evaluateDhalCiPolicy, r as runDhalDoctor } from './doctor-D_EmnbYi.js';
 export { runDhalAutosetup } from './autosetup/index.js';
 export { DHAL_RULE_CATALOG, DhalRuleCatalogEntry, DhalRuleCatalogRow, findDhalRule, getDhalRuleCatalog } from './rules/catalog.js';
@@ -40,10 +42,13 @@ declare class IpReputationCache {
     size(): number;
 }
 
-declare class CompositeDhalTelemetry implements DhalTelemetry {
+declare class CompositeDhalTelemetry implements DhalManagedTelemetry {
     private readonly delegates;
-    constructor(delegates: DhalTelemetry[]);
+    constructor(delegates: DhalManagedTelemetry[]);
     recordDecision(event: DhalSecurityEvent): void;
+    flush(timeoutMs?: number): Promise<void>;
+    close(timeoutMs?: number): Promise<void>;
+    getHealth(): DhalTelemetryHealth;
 }
 
 type DhalPolicyEvaluationContext = {
@@ -82,4 +87,4 @@ type DhalReleaseCheckOptions = {
 };
 declare function runDhalReleaseCheck(options?: DhalReleaseCheckOptions): DhalReleaseCheckResult;
 
-export { CompositeDhalTelemetry, DhalConfig, DhalCredentialStuffingKey, DhalDecision, DhalRateLimitConfig, type DhalReleaseCheckFinding, type DhalReleaseCheckLevel, type DhalReleaseCheckOptions, type DhalReleaseCheckResult, type DhalReleaseTarget, DhalRequest, DhalRouteProfile, DhalSecurityEvent, DhalSeverity, DhalTelemetry, IpReputationCache, IpReputationResult, MemoryRateLimitStore, RateLimitStore, applyPolicyToDecision, buildCredentialKey, isCredentialRoute, resolveSeverity, runDhalReleaseCheck, severityAtLeast, shouldEmitSecurityEvent };
+export { CompositeDhalTelemetry, DhalConfig, DhalCredentialStuffingKey, DhalDecision, DhalManagedTelemetry, DhalRateLimitConfig, type DhalReleaseCheckFinding, type DhalReleaseCheckLevel, type DhalReleaseCheckOptions, type DhalReleaseCheckResult, type DhalReleaseTarget, DhalRequest, DhalRouteProfile, DhalSecurityEvent, DhalSeverity, DhalTelemetryHealth, IpReputationCache, IpReputationResult, MemoryRateLimitStore, RateLimitStore, applyPolicyToDecision, buildCredentialKey, isCredentialRoute, resolveSeverity, runDhalReleaseCheck, severityAtLeast, shouldEmitSecurityEvent };

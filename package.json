@@ -1,7 +1,7 @@
 {
   "name": "@rokadhq/dhal",
-  "version": "1.0.0-rc.0",
-  "description": "Release-candidate app-native WAF for Node.js with a frozen v1 contract, route-aware protection, distributed controls, runtime safety, and production diagnostics.",
+  "version": "1.0.0",
+  "description": "Stable app-native WAF for Node.js with route-aware protection, distributed controls, runtime safety, production diagnostics, and a frozen v1 contract.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -133,8 +133,6 @@
     "SUPPORT_POLICY.md",
     "PRODUCTION_DEPLOYMENT.md",
     "CHANGELOG.md",
-    "ALPHA.md",
-    "BETA.md",
     "V1_READINESS.md",
     "API_STABILITY.md",
     "UPGRADING.md",
@@ -157,7 +155,7 @@
     "verify:performance": "node --expose-gc --import tsx bench/release-budget.ts",
     "verify:supply-chain": "node scripts/generate-release-assets.mjs --verify-only",
     "release:assets": "node scripts/generate-release-assets.mjs",
-    "release:check": "tsx src/cli.ts release-check --target rc --require-build",
+    "release:check": "tsx src/cli.ts release-check --target stable --require-build",
     "release:check:rc": "tsx src/cli.ts release-check --target rc --require-build",
     "release:check:stable": "tsx src/cli.ts release-check --target stable --require-build",
     "verify:publish": "npm run typecheck && npm test && npm run build && npm run schema && npm run verify:exports && npm run ci:config && npm run simulate && npm audit --omit=dev",
@@ -166,8 +164,8 @@
     "pack:release": "npm run verify:v1 && npm pack",
     "prepublishOnly": "npm run verify:v1",
     "doctor": "node -e \"console.log(`node ${process.version}`); console.log(`npm ${process.env.npm_config_user_agent || 'unknown'}`)\"",
-    "publish:local": "npm publish --tag rc --access public --provenance=false",
-    "publish:ci": "npm publish --tag rc --access public",
+    "publish:local": "npm publish --tag latest --access public --provenance=false",
+    "publish:ci": "npm publish --tag latest --access public",
     "release:check:development": "tsx src/cli.ts release-check --target development --require-build"
   },
   "peerDependencies": {

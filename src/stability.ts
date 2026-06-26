@@ -25,7 +25,7 @@ export const DHAL_API_SURFACES: DhalApiSurface[] = [
   { name: "CLI contract", level: "stable", notes: "The command inventory declared by @rokadhq/dhal/v1-contract remains available throughout v1.x." },
   { name: "Redis / Valkey stores", importPath: "@rokadhq/dhal/stores/redis", level: "stable", notes: "Redis 7 and Valkey 8 multi-instance behavior is covered by the v1 release gate." },
   { name: "Webhook telemetry", importPath: "@rokadhq/dhal/telemetry/webhook", level: "stable", notes: "Signed webhook payload and metadata behavior is part of the v1 contract." },
-  { name: "OpenTelemetry adapter", importPath: "@rokadhq/dhal/telemetry/otel", level: "release-candidate", notes: "The adapter API is frozen; emitted attribute additions may still occur before stable v1." },
+  { name: "OpenTelemetry adapter", importPath: "@rokadhq/dhal/telemetry/otel", level: "stable", notes: "The adapter API and existing emitted attributes are part of the stable v1 contract; additive attributes may be introduced in minor releases." },
   { name: "AI autosetup", importPath: "@rokadhq/dhal/autosetup", level: "experimental", notes: "Autosetup produces reviewable proposals and remains outside the stable v1 contract." },
   { name: "Internal rule scoring", level: "internal", notes: "Rule internals and scoring weights are not public API." }
 ];
