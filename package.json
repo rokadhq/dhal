@@ -1,11 +1,11 @@
 {
   "name": "@rokadhq/dhal",
-  "version": "0.13.0-beta.1",
-  "description": "Beta-track app-native WAF for Node.js with v1 contract hardening, schema versioning, compatibility diagnostics, config migrations, runtime safety, AI-assisted autosetup, and observability.",
+  "version": "1.0.0-rc.0",
+  "description": "Release-candidate app-native WAF for Node.js with a frozen v1 contract, route-aware protection, distributed controls, runtime safety, and production diagnostics.",
   "type": "module",
   "license": "MIT",
   "engines": {
-    "node": ">=18.18.0"
+    "node": ">=20.0.0"
   },
   "bin": {
     "dhal": "dist/cli.js"
@@ -153,17 +153,18 @@
     "verify:exports": "node scripts/verify-package-exports.mjs",
     "verify:packed": "node scripts/verify-packed-package.mjs",
     "verify:performance": "node --expose-gc --import tsx bench/release-budget.ts",
-    "release:check": "tsx src/cli.ts release-check --target development --require-build",
+    "release:check": "tsx src/cli.ts release-check --target rc --require-build",
     "release:check:rc": "tsx src/cli.ts release-check --target rc --require-build",
     "release:check:stable": "tsx src/cli.ts release-check --target stable --require-build",
     "verify:publish": "npm run typecheck && npm test && npm run build && npm run schema && npm run verify:exports && npm run ci:config && npm run simulate && npm audit --omit=dev",
     "verify:v1": "npm run verify:publish && npm run verify:packed && npm run verify:performance && npm run release:check",
     "pack:dry": "npm pack --dry-run",
     "pack:release": "npm run verify:v1 && npm pack",
-    "prepublishOnly": "npm run verify:publish",
+    "prepublishOnly": "npm run verify:v1",
     "doctor": "node -e \"console.log(`node ${process.version}`); console.log(`npm ${process.env.npm_config_user_agent || 'unknown'}`)\"",
-    "publish:local": "npm publish --tag beta --access public --provenance=false",
-    "publish:ci": "npm publish --tag beta --access public"
+    "publish:local": "npm publish --tag rc --access public --provenance=false",
+    "publish:ci": "npm publish --tag rc --access public",
+    "release:check:development": "tsx src/cli.ts release-check --target development --require-build"
   },
   "peerDependencies": {
     "@opentelemetry/api": ">=1.8.0",

@@ -17,6 +17,7 @@ export { DhalSupportReport, DhalSupportReportOptions, runDhalSupportReport } fro
 export { DHAL_COMPATIBILITY_MATRIX, DHAL_PACKAGE_VERSION, DHAL_RELEASE_CHANNEL, getDhalCompatibilityMatrix } from './compatibility.cjs';
 export { DhalReadinessCheck, DhalReadinessOptions, DhalReadinessResult, runDhalReadiness } from './readiness.cjs';
 export { DHAL_API_SURFACES, DhalApiStabilityLevel, DhalApiSurface, DhalStabilityReport, getDhalApiStabilityReport } from './stability.cjs';
+export { DHAL_V1_CLI_COMMANDS, DHAL_V1_CONTRACT_VERSION, DHAL_V1_PUBLIC_EXPORTS, DhalV1ContractValidation, DhalV1PublicExport, DhalV1SurfaceStability, getDhalV1Contract, validateDhalV1Contract } from './v1-contract.cjs';
 import 'node:events';
 
 declare class MemoryRateLimitStore implements RateLimitStore {
@@ -60,4 +61,25 @@ declare function severityAtLeast(actual: DhalSeverity, minimum: DhalSeverity): b
 declare function isCredentialRoute(req: DhalRequest, config: DhalConfig): boolean;
 declare function buildCredentialKey(req: DhalRequest, keyBy: DhalCredentialStuffingKey[]): string;
 
-export { CompositeDhalTelemetry, DhalConfig, DhalCredentialStuffingKey, DhalDecision, DhalRateLimitConfig, DhalRequest, DhalRouteProfile, DhalSecurityEvent, DhalSeverity, DhalTelemetry, IpReputationCache, IpReputationResult, MemoryRateLimitStore, RateLimitStore, applyPolicyToDecision, buildCredentialKey, isCredentialRoute, resolveSeverity, severityAtLeast, shouldEmitSecurityEvent };
+type DhalReleaseTarget = "development" | "rc" | "stable";
+type DhalReleaseCheckLevel = "pass" | "warning" | "fail";
+type DhalReleaseCheckFinding = {
+    code: string;
+    level: DhalReleaseCheckLevel;
+    message: string;
+};
+type DhalReleaseCheckResult = {
+    ok: boolean;
+    target: DhalReleaseTarget;
+    packageVersion: string;
+    releaseChannel: string;
+    findings: DhalReleaseCheckFinding[];
+};
+type DhalReleaseCheckOptions = {
+    rootDir?: string | undefined;
+    target?: DhalReleaseTarget | undefined;
+    requireBuild?: boolean | undefined;
+};
+declare function runDhalReleaseCheck(options?: DhalReleaseCheckOptions): DhalReleaseCheckResult;
+
+export { CompositeDhalTelemetry, DhalConfig, DhalCredentialStuffingKey, DhalDecision, DhalRateLimitConfig, type DhalReleaseCheckFinding, type DhalReleaseCheckLevel, type DhalReleaseCheckOptions, type DhalReleaseCheckResult, type DhalReleaseTarget, DhalRequest, DhalRouteProfile, DhalSecurityEvent, DhalSeverity, DhalTelemetry, IpReputationCache, IpReputationResult, MemoryRateLimitStore, RateLimitStore, applyPolicyToDecision, buildCredentialKey, isCredentialRoute, resolveSeverity, runDhalReleaseCheck, severityAtLeast, shouldEmitSecurityEvent };

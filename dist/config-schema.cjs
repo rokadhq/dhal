@@ -26,8 +26,8 @@ module.exports = __toCommonJS(config_schema_exports);
 function getDhalConfigJsonSchema() {
   return {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    $id: "https://dhal.dev/schemas/v0.13/dhal.schema.json",
-    title: "Dhal configuration (schemaVersion 1, v0.13 beta)",
+    $id: "https://dhal.dev/schemas/v1/dhal.schema.json",
+    title: "Dhal configuration (schemaVersion 1, v1 release candidate)",
     type: "object",
     additionalProperties: false,
     properties: {

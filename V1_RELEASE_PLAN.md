@@ -46,4 +46,4 @@ Dhal v1 is a contract and reliability release. New detection features are second
 
 ## Current milestone
 
-The current milestone is Phase 1 plus the package-export verifier from Phase 2. The package version remains on the beta line until these gates are merged and passing.
+The current milestone is `1.0.0-rc.0`. The public contract, package consumers, framework matrix, distributed stores, telemetry, and performance budgets are now enforced by the v1 release gate.

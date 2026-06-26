@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.0.0-rc.0 — V1 release candidate
+
+### Added
+
+- Added a machine-readable v1 public contract and stable CLI inventory.
+- Added packed-package ESM, CommonJS, and TypeScript consumer verification.
+- Added Express 4/5, Fastify 4/5, and raw node:http integration coverage.
+- Added Redis 7 and Valkey 8 multi-instance contract tests.
+- Added signed webhook telemetry integration coverage and release performance budgets.
+- Added the unified `dhal release-check` command.
+
+### Changed
+
+- Raised the v1 minimum runtime to Node.js 20.
+- Promoted the package, schema, compatibility metadata, and publishing defaults to the RC channel.
+- Fixed Fastify plugin encapsulation so normal root registration protects root routes.
+- Replaced legacy telemetry version identifiers with the actual package version.
+
 ## 0.13.0-beta.1 — V1 contract hardening
 
 ### Added

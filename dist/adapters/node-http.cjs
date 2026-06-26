@@ -1844,6 +1844,9 @@ var DhalEventBus = class extends import_node_events.EventEmitter {
   }
 };
 
+// src/compatibility.ts
+var DHAL_PACKAGE_VERSION = "1.0.0-rc.0";
+
 // src/telemetry/otel.ts
 var OpenTelemetryDhalTelemetry = class {
   constructor(options) {
@@ -1857,8 +1860,8 @@ var OpenTelemetryDhalTelemetry = class {
     }
     void this.loadApi().then((api) => {
       if (!api) return;
-      const tracer = api.trace.getTracer("dhal", "0.8.0");
-      const meter = api.metrics.getMeter("dhal", "0.8.0");
+      const tracer = api.trace.getTracer("dhal", DHAL_PACKAGE_VERSION);
+      const meter = api.metrics.getMeter("dhal", DHAL_PACKAGE_VERSION);
       const attributes = toAttributes(event, this.options.serviceName);
       const span = tracer.startSpan("dhal.inspect", { attributes });
       span.setStatus({
@@ -1924,7 +1927,7 @@ var WebhookDhalTelemetry = class {
     const body = JSON.stringify(payload);
     const headers = {
       "content-type": "application/json",
-      "user-agent": "dhal-webhook/0.8.0"
+      "user-agent": `dhal-webhook/${DHAL_PACKAGE_VERSION}`
     };
     addSignatureHeaders(headers, body, event.eventId, this.config.signing);
     try {

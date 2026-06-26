@@ -24,6 +24,11 @@ __export(webhook_exports, {
 });
 module.exports = __toCommonJS(webhook_exports);
 var import_node_crypto = require("crypto");
+
+// src/compatibility.ts
+var DHAL_PACKAGE_VERSION = "1.0.0-rc.0";
+
+// src/telemetry/webhook.ts
 var WebhookDhalTelemetry = class {
   constructor(config) {
     this.config = config;
@@ -46,7 +51,7 @@ var WebhookDhalTelemetry = class {
     const body = JSON.stringify(payload);
     const headers = {
       "content-type": "application/json",
-      "user-agent": "dhal-webhook/0.8.0"
+      "user-agent": `dhal-webhook/${DHAL_PACKAGE_VERSION}`
     };
     addSignatureHeaders(headers, body, event.eventId, this.config.signing);
     try {

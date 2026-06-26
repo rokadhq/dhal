@@ -55,19 +55,19 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
     {
       name: "Express",
       range: ">=4.18.0 || >=5.0.0",
-      status: "tested",
+      status: "supported",
       notes: "Express 4 and 5 are exercised by the v1 adapter matrix."
     },
     {
       name: "Fastify",
       range: ">=4.0.0 || >=5.0.0",
-      status: "tested",
+      status: "supported",
       notes: "Fastify 4 and 5 are exercised by the v1 adapter matrix."
     },
     {
       name: "node:http",
       range: "Node built-in",
-      status: "tested",
+      status: "supported",
       notes: "Raw node:http behavior is covered by integration tests."
     },
     {
@@ -81,7 +81,7 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
     {
       name: "Redis / Valkey",
       range: "ioredis >=5.0.0 compatible client",
-      status: "tested",
+      status: "supported",
       notes: "Redis 7 and Valkey 8 multi-instance contracts are exercised in CI."
     },
     {
@@ -93,7 +93,7 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
     {
       name: "Signed webhook telemetry",
       range: "HTTP/HTTPS endpoint",
-      status: "tested",
+      status: "supported",
       notes: "HMAC signing and current package metadata are integration-tested."
     },
     {

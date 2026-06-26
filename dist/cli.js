@@ -1,27 +1,31 @@
 #!/usr/bin/env node
 import {
+  runDhalReleaseCheck
+} from "./chunk-BQ2PVMHJ.js";
+import {
   runDhalSupportReport
-} from "./chunk-APJ5JOI4.js";
+} from "./chunk-SEEJSQ4N.js";
 import {
   getDhalApiStabilityReport
-} from "./chunk-6ODIBQ3U.js";
+} from "./chunk-D4WSKN55.js";
+import "./chunk-JLONUPCX.js";
 import {
   createDhal
-} from "./chunk-MANVZKED.js";
+} from "./chunk-UXWLQKOE.js";
+import "./chunk-X7PS5EQX.js";
 import "./chunk-IRZXZAQ4.js";
-import "./chunk-JCY2QFLP.js";
-import "./chunk-BGMTMZGL.js";
+import "./chunk-CIHXWQTF.js";
+import "./chunk-54SLRFQ7.js";
 import {
   runDhalAutosetup
 } from "./chunk-CKDCBSDL.js";
-import "./chunk-X7PS5EQX.js";
 import {
   getDhalConfigJsonSchema
-} from "./chunk-VAJ4H2RV.js";
+} from "./chunk-RQSV6ZNH.js";
 import {
   getDhalMigrationPlan,
   migrateDhalConfig
-} from "./chunk-ZGVV7H2U.js";
+} from "./chunk-IJAAGF2J.js";
 import {
   applyDhalPreset,
   getDhalPreset,
@@ -30,10 +34,10 @@ import {
 } from "./chunk-BULVRAC5.js";
 import {
   runDhalReadiness
-} from "./chunk-HBRYRBZJ.js";
+} from "./chunk-QYZB36AP.js";
 import {
   getDhalCompatibilityMatrix
-} from "./chunk-Q76R3BJI.js";
+} from "./chunk-BXC5H4L2.js";
 import {
   evaluateDhalCiPolicy,
   runDhalDoctor
@@ -87,6 +91,12 @@ async function main() {
     case "stability":
     case "api-stability":
       return output(getDhalApiStabilityReport());
+    case "release-check":
+      return finish(runDhalReleaseCheck({
+        rootDir: value("--root") ?? process.cwd(),
+        target: value("--target") ?? "development",
+        requireBuild: has("--require-build") ? true : void 0
+      }));
     case "readiness":
     case "v1-readiness":
       return finish(runDhalReadiness({ configPath, production: has("--production"), minScore: numberValue("--min-score") }));
@@ -211,7 +221,9 @@ function numberValue(flag) {
 function help() {
   console.log(`Dhal CLI
 
-Commands: init, test-config, explain-config, schema, migrate, ci, doctor, report, rules, readiness, compat, stability, presets, autosetup, replay, simulate
+Commands: init, test-config, explain-config, schema, migrate, ci, doctor, report, rules, readiness, compat, stability, release-check, presets, autosetup, replay, simulate
+
+Release gate: dhal release-check --target development|rc|stable [--require-build]
 
 Use --json for machine-readable output.`);
 }
