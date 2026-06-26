@@ -1,6 +1,26 @@
 {
+  "schemaVersion": "1",
   "mode": "monitor",
   "trustProxy": false,
+  "runtime": {
+    "onInternalError": "allow",
+    "internalErrorStatusCode": 500,
+    "maxInspectionMs": 25,
+    "bypass": {
+      "enabled": true,
+      "paths": [
+        "/health",
+        "/healthz",
+        "/ready",
+        "/readyz",
+        "/live",
+        "/livez"
+      ],
+      "methods": [
+        "OPTIONS"
+      ]
+    }
+  },
   "identity": {
     "headers": {
       "userId": [
@@ -183,6 +203,8 @@
         "content_type": "medium"
       },
       "rules": {
+        "ip.allow": "info",
+        "ip.block": "high",
         "honeypot.triggered": "critical",
         "credential_stuffing.threshold_exceeded": "high",
         "ip.reputation": "high",
@@ -220,6 +242,12 @@
     }
   },
   "observability": {
+    "redaction": {
+      "enabled": true,
+      "ip": "mask",
+      "identity": "hash",
+      "userAgent": "full"
+    },
     "correlation": {
       "headers": [
         "x-request-id",
