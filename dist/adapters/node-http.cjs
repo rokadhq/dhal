@@ -41,7 +41,9 @@ var import_node_perf_hooks = require("perf_hooks");
 // src/config.ts
 var import_node_fs = require("fs");
 var import_node_path = require("path");
+var DHAL_CONFIG_SCHEMA_VERSION = "1";
 var defaultConfig = {
+  schemaVersion: DHAL_CONFIG_SCHEMA_VERSION,
   mode: "monitor",
   trustProxy: false,
   runtime: {
@@ -290,6 +292,9 @@ function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function validateConfig(config) {
+  if (config.schemaVersion !== DHAL_CONFIG_SCHEMA_VERSION) {
+    throw new Error(`Unsupported schemaVersion: ${String(config.schemaVersion)}. Expected ${DHAL_CONFIG_SCHEMA_VERSION}. Run \`npx dhal migrate --write\`.`);
+  }
   assertMode(config.mode, "mode");
   const stores = /* @__PURE__ */ new Set(["memory", "redis"]);
   if (!stores.has(config.rateLimit.store)) {

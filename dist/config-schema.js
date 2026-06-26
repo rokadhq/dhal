@@ -1,6 +1,6 @@
 import {
   getDhalConfigJsonSchema
-} from "./chunk-AITPF7EV.js";
+} from "./chunk-VAJ4H2RV.js";
 export {
   getDhalConfigJsonSchema
 };

@@ -1,4 +1,4 @@
-import { R as RateLimitStore, r as DhalRateLimitConfig } from '../types-6Dn0mDWH.js';
+import { R as RateLimitStore, s as DhalRateLimitConfig } from '../types-C1dYoaci.js';
 
 type RedisLikeClient = {
     incr(key: string): Promise<number> | number;

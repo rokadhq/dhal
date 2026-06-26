@@ -1,4 +1,4 @@
-import { E as DhalTelemetry, z as DhalSecurityEvent } from '../types-6Dn0mDWH.cjs';
+import { F as DhalTelemetry, A as DhalSecurityEvent } from '../types-C1dYoaci.cjs';
 
 type OtelAdapterOptions = {
     serviceName: string;

@@ -32,7 +32,9 @@ var index_exports = {};
 __export(index_exports, {
   AbuseIpDbProvider: () => AbuseIpDbProvider,
   CompositeDhalTelemetry: () => CompositeDhalTelemetry,
+  DHAL_API_SURFACES: () => DHAL_API_SURFACES,
   DHAL_COMPATIBILITY_MATRIX: () => DHAL_COMPATIBILITY_MATRIX,
+  DHAL_CONFIG_SCHEMA_VERSION: () => DHAL_CONFIG_SCHEMA_VERSION,
   DHAL_PACKAGE_VERSION: () => DHAL_PACKAGE_VERSION,
   DHAL_PRESETS: () => DHAL_PRESETS,
   DHAL_RELEASE_CHANNEL: () => DHAL_RELEASE_CHANNEL,
@@ -53,13 +55,16 @@ __export(index_exports, {
   defaultConfig: () => defaultConfig,
   evaluateDhalCiPolicy: () => evaluateDhalCiPolicy,
   findDhalRule: () => findDhalRule,
+  getDhalApiStabilityReport: () => getDhalApiStabilityReport,
   getDhalCompatibilityMatrix: () => getDhalCompatibilityMatrix,
   getDhalConfigJsonSchema: () => getDhalConfigJsonSchema,
+  getDhalMigrationPlan: () => getDhalMigrationPlan,
   getDhalPreset: () => getDhalPreset,
   getDhalRuleCatalog: () => getDhalRuleCatalog,
   isCredentialRoute: () => isCredentialRoute,
   listDhalPresets: () => listDhalPresets,
   loadDhalConfig: () => loadDhalConfig,
+  migrateDhalConfig: () => migrateDhalConfig,
   resolveSeverity: () => resolveSeverity,
   runDhalAutosetup: () => runDhalAutosetup,
   runDhalDoctor: () => runDhalDoctor,
@@ -77,7 +82,9 @@ var import_node_perf_hooks = require("perf_hooks");
 // src/config.ts
 var import_node_fs = require("fs");
 var import_node_path = require("path");
+var DHAL_CONFIG_SCHEMA_VERSION = "1";
 var defaultConfig = {
+  schemaVersion: DHAL_CONFIG_SCHEMA_VERSION,
   mode: "monitor",
   trustProxy: false,
   runtime: {
@@ -326,6 +333,9 @@ function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function validateConfig(config) {
+  if (config.schemaVersion !== DHAL_CONFIG_SCHEMA_VERSION) {
+    throw new Error(`Unsupported schemaVersion: ${String(config.schemaVersion)}. Expected ${DHAL_CONFIG_SCHEMA_VERSION}. Run \`npx dhal migrate --write\`.`);
+  }
   assertMode(config.mode, "mode");
   const stores = /* @__PURE__ */ new Set(["memory", "redis"]);
   if (!stores.has(config.rateLimit.store)) {
@@ -2296,11 +2306,12 @@ function writeLog(logger, config, event) {
 function getDhalConfigJsonSchema() {
   return {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    $id: "https://dhal.dev/schemas/v0.12/dhal.schema.json",
-    title: "Dhal configuration (v0.12 beta)",
+    $id: "https://dhal.dev/schemas/v0.13/dhal.schema.json",
+    title: "Dhal configuration (schemaVersion 1, v0.13 beta)",
     type: "object",
     additionalProperties: false,
     properties: {
+      schemaVersion: { const: "1", description: "Dhal config schema contract version. v0.13 introduces schemaVersion 1 as the v1-bound config contract." },
       mode: { $ref: "#/$defs/mode" },
       trustProxy: { type: "boolean" },
       runtime: { $ref: "#/$defs/runtime" },
@@ -3901,7 +3912,7 @@ function isPresetName(name) {
 }
 
 // src/compatibility.ts
-var DHAL_PACKAGE_VERSION = "0.12.0-beta.0";
+var DHAL_PACKAGE_VERSION = "0.13.0-beta.1";
 var DHAL_RELEASE_CHANNEL = "beta";
 var DHAL_COMPATIBILITY_MATRIX = {
   packageName: "@rokadhq/dhal",
@@ -4003,7 +4014,7 @@ var DHAL_COMPATIBILITY_MATRIX = {
     publicApi: "beta-stabilizing",
     configSchema: "beta-stabilizing",
     cli: "beta-stabilizing",
-    note: "Dhal is moving toward v1. Avoid breaking public imports, config keys, and CLI names unless a migration path is provided."
+    note: "Dhal v0.13 introduces schemaVersion 1 and migration checks as the v1-bound configuration contract. Avoid breaking public imports, config keys, and CLI names unless a migration path is provided."
   }
 };
 function getDhalCompatibilityMatrix() {
@@ -4229,6 +4240,7 @@ function runDhalSupportReport(options = {}) {
       arch: process.arch
     },
     config: {
+      schemaVersion: config.schemaVersion,
       mode: config.mode,
       trustProxy: config.trustProxy,
       routeProfiles: Object.keys(config.routes).length,
@@ -4250,11 +4262,84 @@ function runDhalSupportReport(options = {}) {
     enabledRules
   };
 }
+
+// src/migrations.ts
+function getDhalMigrationPlan() {
+  return {
+    currentSchemaVersion: DHAL_CONFIG_SCHEMA_VERSION,
+    supportedInputVersions: [null, "1"],
+    notes: [
+      "Configs without schemaVersion are treated as pre-v0.13 configs and migrated to schemaVersion 1.",
+      "Unknown future schema versions are not downgraded automatically.",
+      "Run `npx dhal migrate dhal.json --write` before adopting v1-bound configs."
+    ]
+  };
+}
+function migrateDhalConfig(input) {
+  const source = isObject(input) ? input : {};
+  const rawVersion = typeof source.schemaVersion === "string" ? source.schemaVersion : null;
+  const notices = [];
+  let changed = false;
+  if (rawVersion === null) {
+    notices.push({
+      level: "info",
+      code: "schemaVersion.added",
+      message: `Added schemaVersion ${DHAL_CONFIG_SCHEMA_VERSION}.`
+    });
+    changed = true;
+  } else if (rawVersion !== DHAL_CONFIG_SCHEMA_VERSION) {
+    notices.push({
+      level: "warning",
+      code: "schemaVersion.unknown",
+      message: `Input schemaVersion '${rawVersion}' is not explicitly supported by this Dhal release. Attempting current-schema normalization only.`
+    });
+  }
+  const normalized = {
+    ...source,
+    schemaVersion: DHAL_CONFIG_SCHEMA_VERSION
+  };
+  const config = deepMerge(defaultConfig, normalized);
+  return {
+    ok: true,
+    changed,
+    fromSchemaVersion: rawVersion,
+    toSchemaVersion: DHAL_CONFIG_SCHEMA_VERSION,
+    config,
+    notices
+  };
+}
+function isObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// src/stability.ts
+var DHAL_API_SURFACES = [
+  { name: "Core engine", importPath: "@rokadhq/dhal", level: "stable-for-v1", notes: "createDhal, loadDhalConfig, config schema export, and core types are intended to remain stable for v1." },
+  { name: "Express adapter", importPath: "@rokadhq/dhal/express", level: "stable-for-v1", notes: "The Express middleware API is v1-bound." },
+  { name: "Fastify adapter", importPath: "@rokadhq/dhal/fastify", level: "stable-for-v1", notes: "The Fastify plugin API is v1-bound." },
+  { name: "Node HTTP adapter", importPath: "@rokadhq/dhal/node-http", level: "stable-for-v1", notes: "The raw node:http handler API is v1-bound." },
+  { name: "dhal.json schemaVersion 1", importPath: "./dhal.schema.json", level: "stable-for-v1", notes: "The schemaVersion 1 configuration model is the v1 contract target." },
+  { name: "CLI diagnostics", level: "stable-for-v1", notes: "doctor, readiness, compat, report, rules, schema, migrate, presets, replay, simulate, and ci are v1-bound command names." },
+  { name: "Redis / Valkey stores", importPath: "@rokadhq/dhal/stores/redis", level: "beta-stabilizing", notes: "Store contracts are expected to remain stable but should get real multi-instance validation before v1." },
+  { name: "Telemetry adapters", importPath: "@rokadhq/dhal/telemetry/otel", level: "beta-stabilizing", notes: "Public integration path is v1-bound; emitted attributes may still be refined." },
+  { name: "AI autosetup", importPath: "@rokadhq/dhal/autosetup", level: "experimental", notes: "Autosetup generates reviewable config proposals and may evolve before v1." },
+  { name: "Internal rule scoring", level: "internal", notes: "Rule internals and scoring weights are not public API." }
+];
+function getDhalApiStabilityReport() {
+  return {
+    packageName: "@rokadhq/dhal",
+    version: DHAL_PACKAGE_VERSION,
+    releaseChannel: DHAL_RELEASE_CHANNEL,
+    surfaces: DHAL_API_SURFACES
+  };
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   AbuseIpDbProvider,
   CompositeDhalTelemetry,
+  DHAL_API_SURFACES,
   DHAL_COMPATIBILITY_MATRIX,
+  DHAL_CONFIG_SCHEMA_VERSION,
   DHAL_PACKAGE_VERSION,
   DHAL_PRESETS,
   DHAL_RELEASE_CHANNEL,
@@ -4275,13 +4360,16 @@ function runDhalSupportReport(options = {}) {
   defaultConfig,
   evaluateDhalCiPolicy,
   findDhalRule,
+  getDhalApiStabilityReport,
   getDhalCompatibilityMatrix,
   getDhalConfigJsonSchema,
+  getDhalMigrationPlan,
   getDhalPreset,
   getDhalRuleCatalog,
   isCredentialRoute,
   listDhalPresets,
   loadDhalConfig,
+  migrateDhalConfig,
   resolveSeverity,
   runDhalAutosetup,
   runDhalDoctor,

@@ -1,24 +1,23 @@
-export { a as DhalEventBus, c as createDhal } from './engine-DVVdPwjH.js';
-import { f as DhalConfig, P as PartialDeep, R as RateLimitStore, r as DhalRateLimitConfig, F as IpReputationResult, E as DhalTelemetry, z as DhalSecurityEvent, j as DhalDecision, s as DhalRequest, u as DhalRouteProfile, B as DhalSeverity, h as DhalCredentialStuffingKey } from './types-6Dn0mDWH.js';
-export { D as DhalAction, a as DhalApiPositiveSecurityConfig, b as DhalAuditExplanation, c as DhalAutosetupOptions, d as DhalAutosetupProvider, e as DhalBotRuleConfig, g as DhalContentTypeConfig, i as DhalCredentialStuffingRuleConfig, k as DhalHeaderAnomalyConfig, l as DhalHeaders, m as DhalHoneypotRuleConfig, n as DhalIdentityKey, o as DhalMode, p as DhalOptions, q as DhalPolicyConfig, t as DhalResponseOutcome, v as DhalRuleConfig, w as DhalRulePackName, x as DhalRuleSuppression, y as DhalSamplingConfig, A as DhalSecuritySignal, C as DhalSignalStore, I as IpReputationProvider } from './types-6Dn0mDWH.js';
+export { a as DhalEventBus, c as createDhal } from './engine-BeMQe4lr.js';
+export { D as DHAL_CONFIG_SCHEMA_VERSION, a as DhalMigrationNotice, b as DhalMigrationPlan, c as DhalMigrationResult, d as defaultConfig, g as getDhalMigrationPlan, l as loadDhalConfig, m as migrateDhalConfig } from './migrations-LoEzZ9xC.js';
 export { getDhalConfigJsonSchema } from './config-schema.js';
+import { R as RateLimitStore, s as DhalRateLimitConfig, G as IpReputationResult, F as DhalTelemetry, A as DhalSecurityEvent, k as DhalDecision, t as DhalRequest, f as DhalConfig, v as DhalRouteProfile, C as DhalSeverity, i as DhalCredentialStuffingKey } from './types-C1dYoaci.js';
+export { D as DhalAction, a as DhalApiPositiveSecurityConfig, b as DhalAuditExplanation, c as DhalAutosetupOptions, d as DhalAutosetupProvider, e as DhalBotRuleConfig, g as DhalConfigSchemaVersion, h as DhalContentTypeConfig, j as DhalCredentialStuffingRuleConfig, l as DhalHeaderAnomalyConfig, m as DhalHeaders, n as DhalHoneypotRuleConfig, o as DhalIdentityKey, p as DhalMode, q as DhalOptions, r as DhalPolicyConfig, u as DhalResponseOutcome, w as DhalRuleConfig, x as DhalRulePackName, y as DhalRuleSuppression, z as DhalSamplingConfig, B as DhalSecuritySignal, E as DhalSignalStore, I as IpReputationProvider } from './types-C1dYoaci.js';
 export { MemorySignalStore } from './stores/memory-signal-store.js';
 export { RedisLikeClient, RedisRateLimitStore } from './stores/redis-rate-limit-store.js';
 export { RedisSignalLikeClient, RedisSignalStore } from './stores/redis-signal-store.js';
 export { AbuseIpDbProvider, createAbuseIpDbProviderFromConfig } from './reputation/abuseipdb.js';
 export { OpenTelemetryDhalTelemetry } from './telemetry/otel.js';
 export { WebhookDhalTelemetry } from './telemetry/webhook.js';
-export { D as DhalDoctorFinding, a as DhalDoctorOptions, b as DhalDoctorResult, e as evaluateDhalCiPolicy, r as runDhalDoctor } from './doctor-CxbGYUY2.js';
+export { D as DhalDoctorFinding, a as DhalDoctorOptions, b as DhalDoctorResult, e as evaluateDhalCiPolicy, r as runDhalDoctor } from './doctor-D_EmnbYi.js';
 export { runDhalAutosetup } from './autosetup/index.js';
 export { DHAL_RULE_CATALOG, DhalRuleCatalogEntry, DhalRuleCatalogRow, findDhalRule, getDhalRuleCatalog } from './rules/catalog.js';
 export { DHAL_PRESETS, DhalPreset, DhalPresetName, DhalPresetSummary, applyDhalPreset, getDhalPreset, listDhalPresets } from './presets.js';
 export { DhalSupportReport, DhalSupportReportOptions, runDhalSupportReport } from './report.js';
 export { DHAL_COMPATIBILITY_MATRIX, DHAL_PACKAGE_VERSION, DHAL_RELEASE_CHANNEL, getDhalCompatibilityMatrix } from './compatibility.js';
 export { DhalReadinessCheck, DhalReadinessOptions, DhalReadinessResult, runDhalReadiness } from './readiness.js';
+export { DHAL_API_SURFACES, DhalApiStabilityLevel, DhalApiSurface, DhalStabilityReport, getDhalApiStabilityReport } from './stability.js';
 import 'node:events';
-
-declare const defaultConfig: DhalConfig;
-declare function loadDhalConfig(configPath?: string, override?: PartialDeep<DhalConfig>): DhalConfig;
 
 declare class MemoryRateLimitStore implements RateLimitStore {
     private readonly buckets;
@@ -61,4 +60,4 @@ declare function severityAtLeast(actual: DhalSeverity, minimum: DhalSeverity): b
 declare function isCredentialRoute(req: DhalRequest, config: DhalConfig): boolean;
 declare function buildCredentialKey(req: DhalRequest, keyBy: DhalCredentialStuffingKey[]): string;
 
-export { CompositeDhalTelemetry, DhalConfig, DhalCredentialStuffingKey, DhalDecision, DhalRateLimitConfig, DhalRequest, DhalRouteProfile, DhalSecurityEvent, DhalSeverity, DhalTelemetry, IpReputationCache, IpReputationResult, MemoryRateLimitStore, RateLimitStore, applyPolicyToDecision, buildCredentialKey, defaultConfig, isCredentialRoute, loadDhalConfig, resolveSeverity, severityAtLeast, shouldEmitSecurityEvent };
+export { CompositeDhalTelemetry, DhalConfig, DhalCredentialStuffingKey, DhalDecision, DhalRateLimitConfig, DhalRequest, DhalRouteProfile, DhalSecurityEvent, DhalSeverity, DhalTelemetry, IpReputationCache, IpReputationResult, MemoryRateLimitStore, RateLimitStore, applyPolicyToDecision, buildCredentialKey, isCredentialRoute, resolveSeverity, severityAtLeast, shouldEmitSecurityEvent };

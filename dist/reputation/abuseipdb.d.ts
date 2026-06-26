@@ -1,4 +1,4 @@
-import { I as IpReputationProvider, F as IpReputationResult, f as DhalConfig } from '../types-6Dn0mDWH.js';
+import { I as IpReputationProvider, G as IpReputationResult, f as DhalConfig } from '../types-C1dYoaci.js';
 
 declare class AbuseIpDbProvider implements IpReputationProvider {
     private readonly options;
