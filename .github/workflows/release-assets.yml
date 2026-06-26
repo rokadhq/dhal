@@ -4,6 +4,14 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/release-assets.yml
+
+concurrency:
+  group: dhal-v1-release-assets
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -15,7 +23,8 @@ jobs:
       - name: Checkout release source
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name || github.ref }}
+          ref: ${{ github.event.release.tag_name || github.sha }}
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -35,16 +44,91 @@ jobs:
       - name: Generate package, SBOM, and checksums
         run: npm run release:assets
 
+      - name: Resolve release metadata
+        id: release
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$TAG" ]; then
+            TAG="v$VERSION"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          awk '
+            /^## 1\.0\.0 — Stable v1$/ { capture=1; next }
+            /^## / && capture { exit }
+            capture { print }
+          ' CHANGELOG.md > release-notes.md
+
+          if [ ! -s release-notes.md ]; then
+            cat > release-notes.md <<'EOF'
+          Dhal 1.0.0 is the first stable production release of the app-native WAF for Node.js.
+
+          This release includes the frozen v1 package, CLI, and schema contracts; production lifecycle controls; distributed dependency guards; company deployment guidance; support and security policies; and supply-chain verification artifacts.
+          EOF
+          fi
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "Dhal v$VERSION" --notes-file release-notes.md --latest
+          else
+            gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "Dhal v$VERSION" \
+              --notes-file release-notes.md \
+              --latest
+          fi
+
+      - name: Attach release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: gh release upload "$TAG" release-assets/* --clobber
+
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dhal-${{ github.event.release.tag_name || github.ref_name }}-release-assets
+          name: dhal-${{ steps.release.outputs.tag }}-release-assets
           path: release-assets
           if-no-files-found: error
 
-      - name: Attach assets to GitHub Release
-        if: github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$TAG" release-assets/* --clobber
+      - name: Record verified GitHub release
+        shell: bash
+        run: |
+          git checkout main
+          git pull --rebase origin main
+          mkdir -p .release-status
+          cat > .release-status/v1.0.0-github.json <<EOF
+          {
+            "repository": "rokadhq/dhal",
+            "tag": "${{ steps.release.outputs.tag }}",
+            "version": "${{ steps.release.outputs.version }}",
+            "releaseType": "stable",
+            "assets": [
+              "rokadhq-dhal-${{ steps.release.outputs.version }}.tgz",
+              "dhal-sbom.cdx.json",
+              "SHA256SUMS",
+              "dhal-release-manifest.json"
+            ],
+            "verifiedBy": "${{ github.workflow }}",
+            "workflowRun": "${{ github.run_id }}",
+            "sourceCommit": "${{ github.sha }}"
+          }
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .release-status/v1.0.0-github.json
+          git commit -m "release: record verified GitHub release for v1.0.0" || exit 0
+          git push origin HEAD:main
