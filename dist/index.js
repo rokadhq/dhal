@@ -6,14 +6,14 @@ import {
 } from "./chunk-7AA6S7PN.js";
 import {
   runDhalReleaseCheck
-} from "./chunk-BQ2PVMHJ.js";
+} from "./chunk-ET4L2V73.js";
 import {
   runDhalSupportReport
-} from "./chunk-SEEJSQ4N.js";
+} from "./chunk-ELNTHGDD.js";
 import {
   DHAL_API_SURFACES,
   getDhalApiStabilityReport
-} from "./chunk-D4WSKN55.js";
+} from "./chunk-V5AJCAWT.js";
 import {
   DHAL_V1_CLI_COMMANDS,
   DHAL_V1_CONTRACT_VERSION,
@@ -28,31 +28,34 @@ import {
   MemoryRateLimitStore,
   applyPolicyToDecision,
   buildCredentialKey,
+  closeDhalTelemetry,
   createDhal,
+  flushDhalTelemetry,
+  getDhalTelemetryHealth,
   isCredentialRoute,
   resolveSeverity,
   severityAtLeast,
   shouldEmitSecurityEvent
-} from "./chunk-UXWLQKOE.js";
-import {
-  AbuseIpDbProvider,
-  createAbuseIpDbProviderFromConfig
-} from "./chunk-X7PS5EQX.js";
+} from "./chunk-U6N4YY5I.js";
 import {
   MemorySignalStore
 } from "./chunk-IRZXZAQ4.js";
 import {
   OpenTelemetryDhalTelemetry
-} from "./chunk-CIHXWQTF.js";
+} from "./chunk-UZTXDMMP.js";
 import {
   WebhookDhalTelemetry
-} from "./chunk-54SLRFQ7.js";
+} from "./chunk-A2WJ3XCG.js";
 import {
   runDhalAutosetup
 } from "./chunk-CKDCBSDL.js";
 import {
+  AbuseIpDbProvider,
+  createAbuseIpDbProviderFromConfig
+} from "./chunk-X7PS5EQX.js";
+import {
   getDhalConfigJsonSchema
-} from "./chunk-RQSV6ZNH.js";
+} from "./chunk-ZAS4CFGL.js";
 import {
   getDhalMigrationPlan,
   migrateDhalConfig
@@ -65,13 +68,13 @@ import {
 } from "./chunk-BULVRAC5.js";
 import {
   runDhalReadiness
-} from "./chunk-QYZB36AP.js";
+} from "./chunk-PGLRB4LH.js";
 import {
   DHAL_COMPATIBILITY_MATRIX,
   DHAL_PACKAGE_VERSION,
   DHAL_RELEASE_CHANNEL,
   getDhalCompatibilityMatrix
-} from "./chunk-BXC5H4L2.js";
+} from "./chunk-PAUGBIG4.js";
 import {
   evaluateDhalCiPolicy,
   runDhalDoctor
@@ -110,17 +113,20 @@ export {
   applyDhalPreset,
   applyPolicyToDecision,
   buildCredentialKey,
+  closeDhalTelemetry,
   createAbuseIpDbProviderFromConfig,
   createDhal,
   defaultConfig,
   evaluateDhalCiPolicy,
   findDhalRule,
+  flushDhalTelemetry,
   getDhalApiStabilityReport,
   getDhalCompatibilityMatrix,
   getDhalConfigJsonSchema,
   getDhalMigrationPlan,
   getDhalPreset,
   getDhalRuleCatalog,
+  getDhalTelemetryHealth,
   getDhalV1Contract,
   isCredentialRoute,
   listDhalPresets,

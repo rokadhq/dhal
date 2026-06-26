@@ -11,12 +11,12 @@ describe("Dhal release check", () => {
     expect(result.findings.some((finding) => finding.code === "exports.unclassified" && finding.level === "pass")).toBe(true);
   });
 
-  it("validates the v1 release-candidate version and channel", () => {
-    const result = runDhalReleaseCheck({ target: "rc", requireBuild: false });
+  it("validates the stable v1 version and channel", () => {
+    const result = runDhalReleaseCheck({ target: "stable", requireBuild: false });
 
     expect(result.ok).toBe(true);
-    expect(result.packageVersion).toBe("1.0.0-rc.0");
-    expect(result.releaseChannel).toBe("rc");
+    expect(result.packageVersion).toBe("1.0.0");
+    expect(result.releaseChannel).toBe("latest");
     expect(result.findings.some((finding) => finding.code === "release.version" && finding.level === "pass")).toBe(true);
     expect(result.findings.some((finding) => finding.code === "release.channel" && finding.level === "pass")).toBe(true);
   });

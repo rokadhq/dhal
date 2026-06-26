@@ -1815,23 +1815,61 @@ var CompositeDhalTelemetry = class {
       }
     }
   }
+  async flush(timeoutMs) {
+    const results = await Promise.allSettled(
+      this.delegates.map(async (delegate) => delegate.flush?.(timeoutMs))
+    );
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure) throw failure.reason;
+  }
+  async close(timeoutMs) {
+    const results = await Promise.allSettled(
+      this.delegates.map(async (delegate) => {
+        if (delegate.close) await delegate.close(timeoutMs);
+        else await delegate.flush?.(timeoutMs);
+      })
+    );
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure) throw failure.reason;
+  }
+  getHealth() {
+    const health = this.delegates.map((delegate) => delegate.getHealth?.()).filter((value) => value !== void 0);
+    return health.reduce((total, current) => ({
+      pending: total.pending + current.pending,
+      delivered: total.delivered + current.delivered,
+      failed: total.failed + current.failed,
+      dropped: total.dropped + current.dropped,
+      closed: total.closed && current.closed
+    }), {
+      pending: 0,
+      delivered: 0,
+      failed: 0,
+      dropped: 0,
+      closed: health.length > 0
+    });
+  }
 };
 
 // src/telemetry/events.ts
 var import_node_events = require("events");
 var DhalEventBus = class extends import_node_events.EventEmitter {
+  constructor(onListenerError) {
+    super();
+    this.onListenerError = onListenerError;
+  }
+  onListenerError;
   emitDecision(event) {
-    this.emit("decision", event);
+    this.emitSafely("decision", event);
     if (event.decision.action === "block" || event.decision.wouldBlock) {
-      this.emit("threat", event);
+      this.emitSafely("threat", event);
       if (event.threatKind) {
-        this.emit(`threat:${event.threatKind}`, event);
+        this.emitSafely(`threat:${event.threatKind}`, event);
       }
     }
   }
   emitSignal(signal) {
-    this.emit("signal", signal);
-    this.emit(`signal:${signal.kind}`, signal);
+    this.emitSafely("signal", signal);
+    this.emitSafely(`signal:${signal.kind}`, signal);
   }
   onDecision(listener) {
     return this.on("decision", listener);
@@ -1842,10 +1880,39 @@ var DhalEventBus = class extends import_node_events.EventEmitter {
   onSignal(listener) {
     return this.on("signal", listener);
   }
+  emitSafely(eventName, payload) {
+    for (const listener of this.rawListeners(eventName)) {
+      try {
+        Reflect.apply(listener, this, [payload]);
+      } catch (error) {
+        try {
+          this.onListenerError?.({ eventName, error });
+        } catch {
+        }
+      }
+    }
+  }
 };
 
+// src/telemetry/lifecycle.ts
+async function flushDhalTelemetry(telemetry, timeoutMs) {
+  const managed = telemetry;
+  await managed?.flush?.(timeoutMs);
+}
+async function closeDhalTelemetry(telemetry, timeoutMs) {
+  const managed = telemetry;
+  if (managed?.close) {
+    await managed.close(timeoutMs);
+    return;
+  }
+  await managed?.flush?.(timeoutMs);
+}
+function getDhalTelemetryHealth(telemetry) {
+  return telemetry?.getHealth?.();
+}
+
 // src/compatibility.ts
-var DHAL_PACKAGE_VERSION = "1.0.0-rc.0";
+var DHAL_PACKAGE_VERSION = "1.0.0";
 
 // src/telemetry/otel.ts
 var OpenTelemetryDhalTelemetry = class {
@@ -1906,23 +1973,68 @@ function toAttributes(event, serviceName) {
 // src/telemetry/webhook.ts
 var import_node_crypto = require("crypto");
 var WebhookDhalTelemetry = class {
-  constructor(config) {
+  constructor(config, options = {}) {
     this.config = config;
+    this.maxPending = positiveInteger(options.maxPending, 1e3, "maxPending");
+    this.defaultFlushTimeoutMs = positiveInteger(options.defaultFlushTimeoutMs, 5e3, "defaultFlushTimeoutMs");
   }
   config;
+  pending = /* @__PURE__ */ new Set();
+  maxPending;
+  defaultFlushTimeoutMs;
+  delivered = 0;
+  failed = 0;
+  dropped = 0;
+  closed = false;
   recordDecision(event) {
     if (!this.config.emitAllowedRequests && event.decision.action === "allow" && !event.decision.wouldBlock) {
       return;
     }
     if (!this.config.enabled || this.config.urls.length === 0) return;
     for (const url of this.config.urls) {
-      void this.send(url, event).catch(() => {
+      if (this.closed || this.pending.size >= this.maxPending) {
+        this.dropped += 1;
+        continue;
+      }
+      let task;
+      task = this.send(url, event).then(() => {
+        this.delivered += 1;
+      }).catch(() => {
+        this.failed += 1;
+      }).finally(() => {
+        this.pending.delete(task);
       });
+      this.pending.add(task);
     }
+  }
+  async flush(timeoutMs = this.defaultFlushTimeoutMs) {
+    const deadline = Date.now() + positiveInteger(timeoutMs, this.defaultFlushTimeoutMs, "timeoutMs");
+    while (this.pending.size > 0) {
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) {
+        throw new Error(`Timed out while draining ${this.pending.size} pending Dhal webhook request(s).`);
+      }
+      const drain = Promise.allSettled([...this.pending]);
+      await withTimeout(drain, remainingMs, () => new Error(`Timed out while draining ${this.pending.size} pending Dhal webhook request(s).`));
+    }
+  }
+  async close(timeoutMs = this.defaultFlushTimeoutMs) {
+    this.closed = true;
+    await this.flush(timeoutMs);
+  }
+  getHealth() {
+    return {
+      pending: this.pending.size,
+      delivered: this.delivered,
+      failed: this.failed,
+      dropped: this.dropped,
+      closed: this.closed
+    };
   }
   async send(url, event) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.timeoutMs);
+    timeout.unref?.();
     const payload = { type: "dhal.security_event", ...event };
     const body = JSON.stringify(payload);
     const headers = {
@@ -1931,12 +2043,15 @@ var WebhookDhalTelemetry = class {
     };
     addSignatureHeaders(headers, body, event.eventId, this.config.signing);
     try {
-      await fetch(url, {
+      const response = await fetch(url, {
         method: "POST",
         headers,
         body,
         signal: controller.signal
       });
+      if (!response.ok) {
+        throw new Error(`Dhal webhook endpoint returned HTTP ${response.status}.`);
+      }
     } finally {
       clearTimeout(timeout);
     }
@@ -1953,6 +2068,25 @@ function addSignatureHeaders(headers, body, eventId, signing) {
   headers[signing.timestampHeader] = timestamp;
   headers[signing.idHeader] = id;
   headers[signing.signatureHeader] = `v1=${digest}`;
+}
+function positiveInteger(value, fallback, name) {
+  if (value === void 0) return fallback;
+  if (!Number.isInteger(value) || value < 1) throw new Error(`${name} must be an integer >= 1.`);
+  return value;
+}
+async function withTimeout(promise, timeoutMs, createError) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_resolve, reject) => {
+        timeout = setTimeout(() => reject(createError()), timeoutMs);
+        timeout.unref?.();
+      })
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }
 
 // src/utils/identity.ts
@@ -1975,20 +2109,33 @@ function firstConfiguredHeader(headers, names) {
 function createDhal(options = {}) {
   const config = loadDhalConfig(options.configPath, options.config);
   const logger = options.logger ?? console;
-  const events = new DhalEventBus();
+  const startedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const counters = {
+    inspected: 0,
+    allowed: 0,
+    blocked: 0,
+    wouldBlock: 0,
+    internalErrors: 0,
+    overBudget: 0,
+    eventListenerErrors: 0,
+    telemetryErrors: 0
+  };
+  const events = new DhalEventBus(({ eventName, error }) => {
+    counters.eventListenerErrors += 1;
+    logger.warn(`[dhal] application listener for ${eventName} failed: ${error instanceof Error ? error.message : String(error)}`);
+  });
   const rateLimitStore = options.rateLimitStore ?? new MemoryRateLimitStore();
   const signalStore = options.signalStore ?? new MemorySignalStore();
   const ipReputationProvider = options.ipReputationProvider ?? createAbuseIpDbProviderFromConfig(config);
   const telemetry = options.telemetry ?? createTelemetry(config);
   const ipReputationCache = new IpReputationCache();
-  if (config.rateLimit.store === "redis" && !options.rateLimitStore) {
-    logger.warn("[dhal] rateLimit.store is set to redis, but no rateLimitStore was provided. Falling back to memory store.");
-  }
-  if (config.ip.reputation.enabled && !ipReputationProvider) {
-    logger.warn(`[dhal] IP reputation is enabled, but no provider is configured. Set ${config.ip.reputation.apiKeyEnv} or pass ipReputationProvider.`);
-  }
+  let closed = false;
+  let closePromise;
+  validateRuntimeDependencies(config, options, ipReputationProvider, logger);
   async function inspect(req) {
-    const startedAt = import_node_perf_hooks.performance.now();
+    assertOpen();
+    counters.inspected += 1;
+    const started = import_node_perf_hooks.performance.now();
     const normalizedReq = normalizeRequest(req, config);
     const context = createRouteSecurityContext(config, normalizedReq.route ?? normalizedReq.path);
     const effectiveConfig = context.config;
@@ -2002,6 +2149,7 @@ function createDhal(options = {}) {
     try {
       decision = await evaluate(normalizedReq, effectiveConfig, rateLimitStore, signalStore, ipReputation);
     } catch (error) {
+      counters.internalErrors += 1;
       const shouldBlock = effectiveConfig.runtime.onInternalError === "block" || effectiveConfig.mode === "strict";
       decision = {
         action: shouldBlock ? "block" : "allow",
@@ -2015,8 +2163,9 @@ function createDhal(options = {}) {
         }
       };
     }
-    const durationMs = import_node_perf_hooks.performance.now() - startedAt;
+    const durationMs = import_node_perf_hooks.performance.now() - started;
     if (effectiveConfig.runtime.maxInspectionMs > 0 && durationMs > effectiveConfig.runtime.maxInspectionMs) {
+      counters.overBudget += 1;
       decision = {
         ...decision,
         meta: {
@@ -2037,13 +2186,19 @@ function createDhal(options = {}) {
       ruleCategory
     });
     const emitted = applyMode(policyDecision, effectiveConfig);
+    updateDecisionCounters(counters, emitted);
     const event = buildEvent(normalizedReq, emitted, durationMs, effectiveConfig);
     const shouldEmit = shouldEmitSecurityEvent(event, effectiveConfig);
     if (effectiveConfig.observability.events.enabled && shouldEmit) {
       events.emitDecision(event);
     }
     if (shouldEmit) {
-      telemetry?.recordDecision(event);
+      try {
+        telemetry?.recordDecision(event);
+      } catch (error) {
+        counters.telemetryErrors += 1;
+        logger.warn(`[dhal] telemetry adapter failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
     if (effectiveConfig.observability.logs.enabled && shouldEmit && (emitted.action === "block" || emitted.wouldBlock)) {
       writeLog(logger, effectiveConfig, event);
@@ -2051,6 +2206,7 @@ function createDhal(options = {}) {
     return emitted;
   }
   async function recordOutcome(req, outcome) {
+    assertOpen();
     try {
       const normalizedReq = normalizeRequest(req, config);
       const context = createRouteSecurityContext(config, normalizedReq.route ?? normalizedReq.path);
@@ -2067,11 +2223,40 @@ function createDhal(options = {}) {
       logger.warn(`[dhal] failed to record response outcome: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+  async function flush(timeoutMs) {
+    await flushDhalTelemetry(telemetry, timeoutMs);
+  }
+  async function close(timeoutMs) {
+    if (closePromise) return closePromise;
+    closed = true;
+    closePromise = (async () => {
+      try {
+        await closeDhalTelemetry(telemetry, timeoutMs);
+      } finally {
+        events.removeAllListeners();
+      }
+    })();
+    return closePromise;
+  }
+  function getRuntimeSnapshot() {
+    return {
+      startedAt,
+      closed,
+      ...counters,
+      telemetry: getDhalTelemetryHealth(telemetry)
+    };
+  }
+  function assertOpen() {
+    if (closed) throw new Error("Dhal engine is closed.");
+  }
   return {
     config,
     events,
     inspect,
-    recordOutcome
+    recordOutcome,
+    flush,
+    close,
+    getRuntimeSnapshot
   };
 }
 async function evaluate(req, config, rateLimitStore, signalStore, ipReputation) {
@@ -2131,6 +2316,32 @@ function createTelemetry(config) {
   if (delegates.length === 0) return void 0;
   if (delegates.length === 1) return delegates[0];
   return new CompositeDhalTelemetry(delegates);
+}
+function validateRuntimeDependencies(config, options, ipReputationProvider, logger) {
+  const enforcing = hasEnforcingMode(config);
+  const distributedRateLimitEnabled = config.rateLimit.store === "redis" && (config.rateLimit.enabled || Object.values(config.routes).some((profile) => profile.rateLimit?.enabled === true));
+  if (distributedRateLimitEnabled && !options.rateLimitStore) {
+    const message = "[dhal] rateLimit.store is redis, but no distributed rateLimitStore was provided.";
+    if (enforcing) throw new Error(`${message} Refusing to start in an enforcing mode with an in-memory fallback.`);
+    logger.warn(`${message} Monitor-only operation will use the in-memory store.`);
+  }
+  const blockingReputationEnabled = config.ip.reputation.enabled && config.ip.reputation.mode === "blocking" || Object.values(config.routes).some((profile) => profile.ipReputation?.enabled === true && profile.ipReputation.mode === "blocking");
+  if (blockingReputationEnabled && !ipReputationProvider) {
+    const message = `[dhal] blocking IP reputation is enabled, but no provider is configured. Set ${config.ip.reputation.apiKeyEnv} or pass ipReputationProvider.`;
+    if (enforcing) throw new Error(`${message} Refusing to start with an unavailable blocking control.`);
+    logger.warn(message);
+  } else if (config.ip.reputation.enabled && !ipReputationProvider) {
+    logger.warn(`[dhal] IP reputation is enabled, but no provider is configured. Set ${config.ip.reputation.apiKeyEnv} or pass ipReputationProvider.`);
+  }
+}
+function hasEnforcingMode(config) {
+  if (config.mode === "block" || config.mode === "strict") return true;
+  return Object.values(config.routes).some((profile) => profile.mode === "block" || profile.mode === "strict");
+}
+function updateDecisionCounters(counters, decision) {
+  if (decision.wouldBlock) counters.wouldBlock += 1;
+  if (decision.action === "block") counters.blocked += 1;
+  else counters.allowed += 1;
 }
 function enrichDecision(decision, config, routePattern, routeProfile) {
   return {

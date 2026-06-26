@@ -1,6 +1,6 @@
 # Dhal v1 Release Plan
 
-This branch prepares `1.0.0-rc.0` as the contract-validation release before stable `1.0.0`.
+This document records the completed path to stable `1.0.0` and the ongoing v1 maintenance requirements.
 
 ## Release principle
 
@@ -46,4 +46,4 @@ Dhal v1 is a contract and reliability release. New detection features are second
 
 ## Current milestone
 
-The current milestone is `1.0.0-rc.0`. The public contract, package consumers, framework matrix, distributed stores, telemetry, and performance budgets are now enforced by the v1 release gate.
+The current milestone is stable `1.0.0`. The public contract, package consumers, framework matrix, distributed stores, telemetry, supply-chain assets, and performance budgets are enforced by the v1 release gates.

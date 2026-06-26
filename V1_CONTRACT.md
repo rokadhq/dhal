@@ -1,6 +1,6 @@
 # Dhal v1 Contract Hardening
 
-Dhal `1.0.0-rc.0` freezes the first stable v1 configuration and public API contract.
+Dhal `1.0.0` establishes the stable v1 configuration and public API contract.
 
 ## Configuration schema
 
@@ -12,7 +12,7 @@ All generated configs now include:
 }
 ```
 
-`schemaVersion: "1"` is the target configuration contract for the first stable `v1.0.0` release. Existing configs without `schemaVersion` are treated as pre-v0.13 configs and can be normalized with:
+`schemaVersion: "1"` is the stable configuration contract for the v1 release line. Existing configs without `schemaVersion` are treated as pre-v0.13 configs and can be normalized with:
 
 ```bash
 npx dhal migrate dhal.json --write
@@ -38,7 +38,7 @@ Experimental surfaces include AI autosetup internals and internal rule scoring w
 
 ## Release guidance
 
-For beta users:
+For production users:
 
 1. Pin exact versions for production trials.
 2. Run `npx dhal migrate --check` before upgrades.

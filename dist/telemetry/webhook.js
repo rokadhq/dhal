@@ -1,7 +1,7 @@
 import {
   WebhookDhalTelemetry
-} from "../chunk-54SLRFQ7.js";
-import "../chunk-BXC5H4L2.js";
+} from "../chunk-A2WJ3XCG.js";
+import "../chunk-PAUGBIG4.js";
 export {
   WebhookDhalTelemetry
 };

@@ -24,8 +24,8 @@ export type DhalCompatibilityMatrix = {
   };
 };
 
-export const DHAL_PACKAGE_VERSION = "1.0.0-rc.0";
-export const DHAL_RELEASE_CHANNEL = "rc" as const;
+export const DHAL_PACKAGE_VERSION = "1.0.0";
+export const DHAL_RELEASE_CHANNEL = "latest" as const;
 
 export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
   packageName: "@rokadhq/dhal",
@@ -130,10 +130,10 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
     }
   ],
   stability: {
-    publicApi: "release-candidate",
+    publicApi: "stable",
     configSchema: "stable",
-    cli: "release-candidate",
-    note: "Dhal 1.0.0-rc.0 freezes schemaVersion 1 and the stable export/CLI inventories. RC feedback may fix defects but must not silently break the declared v1 contract."
+    cli: "stable",
+    note: "Dhal 1.0.0 is the stable v1 contract. Stable exports, CLI commands, and schemaVersion 1 remain backward compatible throughout v1.x."
   }
 };
 

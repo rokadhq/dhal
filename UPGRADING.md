@@ -1,11 +1,11 @@
 # Upgrading Dhal
 
-## From v0.13 beta to v1.0.0-rc.0
+## From v0.13 beta or v1 RC to stable v1.0.0
 
-Install the release-candidate tag explicitly:
+Install the stable release:
 
 ```bash
-npm install @rokadhq/dhal@rc
+npm install @rokadhq/dhal@latest
 ```
 
 Dhal v1 requires Node.js 20 or newer.
@@ -55,7 +55,7 @@ npx dhal report --output dhal.report.json
 
 Start in monitor mode, review false positives and support reports, then promote selected route profiles to `block` or `strict`.
 
-## Notable v1 RC changes
+## Notable stable v1 changes
 
 - Minimum Node.js runtime raised from 18.18 to 20.
 - Normal Fastify plugin registration now protects root routes.

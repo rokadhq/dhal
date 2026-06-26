@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.0 — Stable v1
+
+### Production hardening
+
+- Added graceful engine and telemetry lifecycle methods: `flush()`, `close()`, and `getRuntimeSnapshot()`.
+- Isolated application event-listener and synchronous telemetry failures from request handling.
+- Added bounded webhook delivery with pending, delivered, failed, and dropped counters.
+- Refused enforcing startup when declared Redis or blocking-reputation dependencies are unavailable.
+
+### Enterprise readiness
+
+- Added stable support, deprecation, security, and production deployment policies.
+- Added CycloneDX SBOM, SHA-256 checksum, package tarball, and release-manifest generation.
+- Added release-asset automation and supply-chain validation.
+- Replaced beta-era README guidance with stable production onboarding and operational documentation.
+
+### Stability
+
+- Promoted the package, CLI, schemaVersion 1, framework adapters, distributed stores, webhook telemetry, and OpenTelemetry adapter to the stable v1 contract.
+- Published stable builds under the npm `latest` dist-tag.
+
 ## 1.0.0-rc.0 — V1 release candidate
 
 ### Added

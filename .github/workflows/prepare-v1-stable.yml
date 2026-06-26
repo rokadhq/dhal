@@ -1,0 +1,13 @@
+name: Archived Dhal v1 stable preparation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archived:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "The verified Dhal v1.0.0 stable tree has already been prepared."

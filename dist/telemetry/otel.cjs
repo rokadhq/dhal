@@ -35,7 +35,7 @@ __export(otel_exports, {
 module.exports = __toCommonJS(otel_exports);
 
 // src/compatibility.ts
-var DHAL_PACKAGE_VERSION = "1.0.0-rc.0";
+var DHAL_PACKAGE_VERSION = "1.0.0";
 
 // src/telemetry/otel.ts
 var OpenTelemetryDhalTelemetry = class {

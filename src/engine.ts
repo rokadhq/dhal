@@ -18,6 +18,7 @@ import { MemoryRateLimitStore } from "./stores/memory-rate-limit-store.js";
 import { MemorySignalStore } from "./stores/memory-signal-store.js";
 import { CompositeDhalTelemetry } from "./telemetry/composite.js";
 import { DhalEventBus } from "./telemetry/events.js";
+import { closeDhalTelemetry, flushDhalTelemetry, getDhalTelemetryHealth, type DhalManagedTelemetry, type DhalTelemetryHealth } from "./telemetry/lifecycle.js";
 import { OpenTelemetryDhalTelemetry } from "./telemetry/otel.js";
 import { WebhookDhalTelemetry } from "./telemetry/webhook.js";
 import type { DhalConfig, DhalDecision, DhalOptions, DhalRequest, DhalResponseOutcome, DhalRouteProfile, DhalSecurityEvent, DhalSignalStore, DhalTelemetry, RateLimitStore } from "./types.js";
@@ -25,33 +26,62 @@ import { getHeader } from "./utils/ip.js";
 import { extractIdentity } from "./utils/identity.js";
 import { createRouteSecurityContext } from "./utils/route.js";
 
+export type DhalRuntimeSnapshot = {
+  startedAt: string;
+  closed: boolean;
+  inspected: number;
+  allowed: number;
+  blocked: number;
+  wouldBlock: number;
+  internalErrors: number;
+  overBudget: number;
+  eventListenerErrors: number;
+  telemetryErrors: number;
+  telemetry?: DhalTelemetryHealth | undefined;
+};
+
 export type DhalEngine = {
   readonly config: DhalConfig;
   readonly events: DhalEventBus;
   inspect(req: DhalRequest): Promise<DhalDecision>;
   recordOutcome(req: DhalRequest, outcome: DhalResponseOutcome): Promise<void>;
+  flush(timeoutMs?: number): Promise<void>;
+  close(timeoutMs?: number): Promise<void>;
+  getRuntimeSnapshot(): DhalRuntimeSnapshot;
 };
 
 export function createDhal(options: DhalOptions = {}): DhalEngine {
   const config = loadDhalConfig(options.configPath, options.config);
   const logger = options.logger ?? console;
-  const events = new DhalEventBus();
+  const startedAt = new Date().toISOString();
+  const counters = {
+    inspected: 0,
+    allowed: 0,
+    blocked: 0,
+    wouldBlock: 0,
+    internalErrors: 0,
+    overBudget: 0,
+    eventListenerErrors: 0,
+    telemetryErrors: 0
+  };
+  const events = new DhalEventBus(({ eventName, error }) => {
+    counters.eventListenerErrors += 1;
+    logger.warn(`[dhal] application listener for ${eventName} failed: ${error instanceof Error ? error.message : String(error)}`);
+  });
   const rateLimitStore = options.rateLimitStore ?? new MemoryRateLimitStore();
   const signalStore = options.signalStore ?? new MemorySignalStore();
   const ipReputationProvider = options.ipReputationProvider ?? createAbuseIpDbProviderFromConfig(config);
   const telemetry = options.telemetry ?? createTelemetry(config);
   const ipReputationCache = new IpReputationCache();
+  let closed = false;
+  let closePromise: Promise<void> | undefined;
 
-  if (config.rateLimit.store === "redis" && !options.rateLimitStore) {
-    logger.warn("[dhal] rateLimit.store is set to redis, but no rateLimitStore was provided. Falling back to memory store.");
-  }
-
-  if (config.ip.reputation.enabled && !ipReputationProvider) {
-    logger.warn(`[dhal] IP reputation is enabled, but no provider is configured. Set ${config.ip.reputation.apiKeyEnv} or pass ipReputationProvider.`);
-  }
+  validateRuntimeDependencies(config, options, ipReputationProvider, logger);
 
   async function inspect(req: DhalRequest): Promise<DhalDecision> {
-    const startedAt = performance.now();
+    assertOpen();
+    counters.inspected += 1;
+    const started = performance.now();
     const normalizedReq = normalizeRequest(req, config);
     const context = createRouteSecurityContext(config, normalizedReq.route ?? normalizedReq.path);
     const effectiveConfig = context.config;
@@ -66,6 +96,7 @@ export function createDhal(options: DhalOptions = {}): DhalEngine {
     try {
       decision = await evaluate(normalizedReq, effectiveConfig, rateLimitStore, signalStore, ipReputation);
     } catch (error) {
+      counters.internalErrors += 1;
       const shouldBlock = effectiveConfig.runtime.onInternalError === "block" || effectiveConfig.mode === "strict";
       decision = {
         action: shouldBlock ? "block" : "allow",
@@ -80,8 +111,9 @@ export function createDhal(options: DhalOptions = {}): DhalEngine {
       };
     }
 
-    const durationMs = performance.now() - startedAt;
+    const durationMs = performance.now() - started;
     if (effectiveConfig.runtime.maxInspectionMs > 0 && durationMs > effectiveConfig.runtime.maxInspectionMs) {
+      counters.overBudget += 1;
       decision = {
         ...decision,
         meta: {
@@ -104,6 +136,7 @@ export function createDhal(options: DhalOptions = {}): DhalEngine {
       ruleCategory
     });
     const emitted = applyMode(policyDecision, effectiveConfig);
+    updateDecisionCounters(counters, emitted);
     const event = buildEvent(normalizedReq, emitted, durationMs, effectiveConfig);
     const shouldEmit = shouldEmitSecurityEvent(event, effectiveConfig);
 
@@ -112,7 +145,12 @@ export function createDhal(options: DhalOptions = {}): DhalEngine {
     }
 
     if (shouldEmit) {
-      telemetry?.recordDecision(event);
+      try {
+        telemetry?.recordDecision(event);
+      } catch (error) {
+        counters.telemetryErrors += 1;
+        logger.warn(`[dhal] telemetry adapter failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
 
     if (effectiveConfig.observability.logs.enabled && shouldEmit && (emitted.action === "block" || emitted.wouldBlock)) {
@@ -123,6 +161,7 @@ export function createDhal(options: DhalOptions = {}): DhalEngine {
   }
 
   async function recordOutcome(req: DhalRequest, outcome: DhalResponseOutcome): Promise<void> {
+    assertOpen();
     try {
       const normalizedReq = normalizeRequest(req, config);
       const context = createRouteSecurityContext(config, normalizedReq.route ?? normalizedReq.path);
@@ -141,11 +180,44 @@ export function createDhal(options: DhalOptions = {}): DhalEngine {
     }
   }
 
+  async function flush(timeoutMs?: number): Promise<void> {
+    await flushDhalTelemetry(telemetry, timeoutMs);
+  }
+
+  async function close(timeoutMs?: number): Promise<void> {
+    if (closePromise) return closePromise;
+    closed = true;
+    closePromise = (async () => {
+      try {
+        await closeDhalTelemetry(telemetry, timeoutMs);
+      } finally {
+        events.removeAllListeners();
+      }
+    })();
+    return closePromise;
+  }
+
+  function getRuntimeSnapshot(): DhalRuntimeSnapshot {
+    return {
+      startedAt,
+      closed,
+      ...counters,
+      telemetry: getDhalTelemetryHealth(telemetry)
+    };
+  }
+
+  function assertOpen(): void {
+    if (closed) throw new Error("Dhal engine is closed.");
+  }
+
   return {
     config,
     events,
     inspect,
-    recordOutcome
+    recordOutcome,
+    flush,
+    close,
+    getRuntimeSnapshot
   };
 }
 
@@ -212,8 +284,8 @@ function normalizeRequest(req: DhalRequest, config: DhalConfig): DhalRequest {
   } satisfies DhalRequest;
 }
 
-function createTelemetry(config: DhalConfig): DhalTelemetry | undefined {
-  const delegates: DhalTelemetry[] = [];
+function createTelemetry(config: DhalConfig): DhalManagedTelemetry | undefined {
+  const delegates: DhalManagedTelemetry[] = [];
 
   if (config.observability.otel.enabled) {
     delegates.push(new OpenTelemetryDhalTelemetry({
@@ -229,6 +301,50 @@ function createTelemetry(config: DhalConfig): DhalTelemetry | undefined {
   if (delegates.length === 0) return undefined;
   if (delegates.length === 1) return delegates[0];
   return new CompositeDhalTelemetry(delegates);
+}
+
+function validateRuntimeDependencies(
+  config: DhalConfig,
+  options: DhalOptions,
+  ipReputationProvider: DhalOptions["ipReputationProvider"],
+  logger: Pick<Console, "log" | "warn" | "error">
+): void {
+  const enforcing = hasEnforcingMode(config);
+  const distributedRateLimitEnabled = config.rateLimit.store === "redis" && (
+    config.rateLimit.enabled || Object.values(config.routes).some((profile) => profile.rateLimit?.enabled === true)
+  );
+
+  if (distributedRateLimitEnabled && !options.rateLimitStore) {
+    const message = "[dhal] rateLimit.store is redis, but no distributed rateLimitStore was provided.";
+    if (enforcing) throw new Error(`${message} Refusing to start in an enforcing mode with an in-memory fallback.`);
+    logger.warn(`${message} Monitor-only operation will use the in-memory store.`);
+  }
+
+  const blockingReputationEnabled = (
+    config.ip.reputation.enabled && config.ip.reputation.mode === "blocking"
+  ) || Object.values(config.routes).some((profile) => profile.ipReputation?.enabled === true && profile.ipReputation.mode === "blocking");
+
+  if (blockingReputationEnabled && !ipReputationProvider) {
+    const message = `[dhal] blocking IP reputation is enabled, but no provider is configured. Set ${config.ip.reputation.apiKeyEnv} or pass ipReputationProvider.`;
+    if (enforcing) throw new Error(`${message} Refusing to start with an unavailable blocking control.`);
+    logger.warn(message);
+  } else if (config.ip.reputation.enabled && !ipReputationProvider) {
+    logger.warn(`[dhal] IP reputation is enabled, but no provider is configured. Set ${config.ip.reputation.apiKeyEnv} or pass ipReputationProvider.`);
+  }
+}
+
+function hasEnforcingMode(config: DhalConfig): boolean {
+  if (config.mode === "block" || config.mode === "strict") return true;
+  return Object.values(config.routes).some((profile) => profile.mode === "block" || profile.mode === "strict");
+}
+
+function updateDecisionCounters(
+  counters: { allowed: number; blocked: number; wouldBlock: number },
+  decision: DhalDecision
+): void {
+  if (decision.wouldBlock) counters.wouldBlock += 1;
+  if (decision.action === "block") counters.blocked += 1;
+  else counters.allowed += 1;
 }
 
 function enrichDecision(

@@ -1,4 +1,4 @@
-export { createDhal } from "./engine.js";
+export { createDhal, type DhalEngine, type DhalRuntimeSnapshot } from "./engine.js";
 export { loadDhalConfig, defaultConfig, DHAL_CONFIG_SCHEMA_VERSION } from "./config.js";
 export { getDhalConfigJsonSchema } from "./config-schema.js";
 export { MemoryRateLimitStore } from "./stores/memory-rate-limit-store.js";
@@ -7,10 +7,17 @@ export { RedisRateLimitStore } from "./stores/redis-rate-limit-store.js";
 export { RedisSignalStore } from "./stores/redis-signal-store.js";
 export { AbuseIpDbProvider, createAbuseIpDbProviderFromConfig } from "./reputation/abuseipdb.js";
 export { IpReputationCache } from "./reputation/cache.js";
-export { DhalEventBus } from "./telemetry/events.js";
+export { DhalEventBus, type DhalEventListenerError } from "./telemetry/events.js";
 export { CompositeDhalTelemetry } from "./telemetry/composite.js";
 export { OpenTelemetryDhalTelemetry } from "./telemetry/otel.js";
-export { WebhookDhalTelemetry } from "./telemetry/webhook.js";
+export { WebhookDhalTelemetry, type WebhookDhalTelemetryOptions } from "./telemetry/webhook.js";
+export {
+  closeDhalTelemetry,
+  flushDhalTelemetry,
+  getDhalTelemetryHealth,
+  type DhalManagedTelemetry,
+  type DhalTelemetryHealth
+} from "./telemetry/lifecycle.js";
 export { evaluateDhalCiPolicy } from "./ci.js";
 export { runDhalAutosetup } from "./autosetup/index.js";
 export { runDhalDoctor } from "./doctor.js";
