@@ -82,6 +82,7 @@ import http from "node:http";
 import { createNodeHttpDhal } from "@rokadhq/dhal/node-http";
 
 const protection = createNodeHttpDhal({ configPath: "dhal.json" });
+
 const server = http.createServer(async (req, res) => {
   const decision = await protection.inspect(req, res);
   if (decision.action === "block") return;
