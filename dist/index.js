@@ -36,10 +36,14 @@ import {
   resolveSeverity,
   severityAtLeast,
   shouldEmitSecurityEvent
-} from "./chunk-U6N4YY5I.js";
+} from "./chunk-7EXZJ6UD.js";
 import {
   MemorySignalStore
 } from "./chunk-IRZXZAQ4.js";
+import {
+  AbuseIpDbProvider,
+  createAbuseIpDbProviderFromConfig
+} from "./chunk-X7PS5EQX.js";
 import {
   OpenTelemetryDhalTelemetry
 } from "./chunk-UZTXDMMP.js";
@@ -49,10 +53,6 @@ import {
 import {
   runDhalAutosetup
 } from "./chunk-CKDCBSDL.js";
-import {
-  AbuseIpDbProvider,
-  createAbuseIpDbProviderFromConfig
-} from "./chunk-X7PS5EQX.js";
 import {
   getDhalConfigJsonSchema
 } from "./chunk-ZAS4CFGL.js";
