@@ -9,8 +9,12 @@ on:
     paths:
       - .github/workflows/publish.yml
 
+concurrency:
+  group: dhal-npm-publish
+  cancel-in-progress: false
+
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -19,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -31,12 +37,7 @@ jobs:
         run: npm install -g npm@latest
 
       - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: npm ci
 
       - name: Verify stable package
         run: npm run verify:v1
@@ -73,20 +74,39 @@ jobs:
         run: npm publish --access public --tag ${{ steps.release.outputs.tag }}
 
       - name: Confirm published package
-        if: steps.release.outputs.should_publish == 'true'
+        id: confirm
         shell: bash
         run: |
-          for attempt in {1..12}; do
+          for attempt in {1..18}; do
             PUBLISHED="$(npm view "@rokadhq/dhal@${{ steps.release.outputs.version }}" version --registry=https://registry.npmjs.org/ 2>/dev/null || true)"
-            if [ "$PUBLISHED" = "${{ steps.release.outputs.version }}" ]; then
-              echo "Confirmed @rokadhq/dhal@$PUBLISHED"
+            LATEST="$(npm view "@rokadhq/dhal" dist-tags.latest --registry=https://registry.npmjs.org/ 2>/dev/null || true)"
+            if [ "$PUBLISHED" = "${{ steps.release.outputs.version }}" ] && [ "$LATEST" = "${{ steps.release.outputs.version }}" ]; then
+              echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+              echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             sleep 5
           done
-          echo "Published version was not visible in the npm registry within the verification window." >&2
+          echo "Stable version or latest dist-tag was not visible in the npm registry." >&2
           exit 1
 
-      - name: Package already published
-        if: steps.release.outputs.should_publish != 'true'
-        run: echo "@rokadhq/dhal@${{ steps.release.outputs.version }} already exists; skipping publication."
+      - name: Record verified npm publication
+        shell: bash
+        run: |
+          mkdir -p .release-status
+          cat > .release-status/v1.0.0-npm.json <<EOF
+          {
+            "package": "@rokadhq/dhal",
+            "version": "${{ steps.confirm.outputs.published }}",
+            "distTag": "latest",
+            "verifiedBy": "${{ github.workflow }}",
+            "workflowRun": "${{ github.run_id }}",
+            "sourceCommit": "${{ github.sha }}"
+          }
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .release-status/v1.0.0-npm.json
+          git commit -m "release: record verified npm publication for v1.0.0" || exit 0
+          git push origin HEAD:main
