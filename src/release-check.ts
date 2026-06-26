@@ -31,6 +31,7 @@ export function runDhalReleaseCheck(options: DhalReleaseCheckOptions = {}): Dhal
   const rootDir = resolve(options.rootDir ?? process.cwd());
   const target = options.target ?? "development";
   const requireBuild = options.requireBuild ?? target !== "development";
+  const releaseChannel = String(DHAL_RELEASE_CHANNEL);
   const findings: DhalReleaseCheckFinding[] = [];
   const packageJson = readJson(resolve(rootDir, "package.json"));
   const packageLock = readJson(resolve(rootDir, "package-lock.json"));
@@ -73,18 +74,18 @@ export function runDhalReleaseCheck(options: DhalReleaseCheckOptions = {}): Dhal
     });
   }
 
-  validateTarget(findings, target, packageVersion);
+  validateTarget(findings, target, packageVersion, releaseChannel);
 
   return {
     ok: findings.every((finding) => finding.level !== "fail"),
     target,
     packageVersion,
-    releaseChannel: DHAL_RELEASE_CHANNEL,
+    releaseChannel,
     findings
   };
 }
 
-function validateTarget(findings: DhalReleaseCheckFinding[], target: DhalReleaseTarget, version: string): void {
+function validateTarget(findings: DhalReleaseCheckFinding[], target: DhalReleaseTarget, version: string, releaseChannel: string): void {
   if (target === "development") {
     findings.push({ code: "release.target", level: "pass", message: "Development release checks selected." });
     return;
@@ -92,12 +93,12 @@ function validateTarget(findings: DhalReleaseCheckFinding[], target: DhalRelease
 
   if (target === "rc") {
     add(findings, /^1\.0\.0-rc\.\d+$/.test(version), "release.version", "Version is a Dhal v1 release candidate.", `RC target requires 1.0.0-rc.N; found ${version}.`);
-    add(findings, DHAL_RELEASE_CHANNEL === "rc", "release.channel", "Release channel is rc.", `RC target requires release channel rc; found ${DHAL_RELEASE_CHANNEL}.`);
+    add(findings, releaseChannel === "rc", "release.channel", "Release channel is rc.", `RC target requires release channel rc; found ${releaseChannel}.`);
     return;
   }
 
   add(findings, /^1\.\d+\.\d+$/.test(version), "release.version", "Version is a stable v1 release.", `Stable target requires 1.x.y without a prerelease suffix; found ${version}.`);
-  add(findings, DHAL_RELEASE_CHANNEL === "latest", "release.channel", "Release channel is latest.", `Stable target requires release channel latest; found ${DHAL_RELEASE_CHANNEL}.`);
+  add(findings, releaseChannel === "latest", "release.channel", "Release channel is latest.", `Stable target requires release channel latest; found ${releaseChannel}.`);
 }
 
 function add(findings: DhalReleaseCheckFinding[], condition: boolean, code: string, pass: string, fail: string): void {
