@@ -6,14 +6,14 @@ import {
 } from "./chunk-7AA6S7PN.js";
 import {
   runDhalReleaseCheck
-} from "./chunk-BQ2PVMHJ.js";
+} from "./chunk-ZZYQFWBN.js";
 import {
   runDhalSupportReport
-} from "./chunk-SEEJSQ4N.js";
+} from "./chunk-6MWX5ZRZ.js";
 import {
   DHAL_API_SURFACES,
   getDhalApiStabilityReport
-} from "./chunk-D4WSKN55.js";
+} from "./chunk-AVUAE5GK.js";
 import {
   DHAL_V1_CLI_COMMANDS,
   DHAL_V1_CONTRACT_VERSION,
@@ -33,23 +33,23 @@ import {
   resolveSeverity,
   severityAtLeast,
   shouldEmitSecurityEvent
-} from "./chunk-UXWLQKOE.js";
-import {
-  AbuseIpDbProvider,
-  createAbuseIpDbProviderFromConfig
-} from "./chunk-X7PS5EQX.js";
+} from "./chunk-BDTAGEUX.js";
 import {
   MemorySignalStore
 } from "./chunk-IRZXZAQ4.js";
 import {
   OpenTelemetryDhalTelemetry
-} from "./chunk-CIHXWQTF.js";
+} from "./chunk-5I5HJW4S.js";
 import {
   WebhookDhalTelemetry
-} from "./chunk-54SLRFQ7.js";
+} from "./chunk-NIFKXCUN.js";
 import {
   runDhalAutosetup
 } from "./chunk-CKDCBSDL.js";
+import {
+  AbuseIpDbProvider,
+  createAbuseIpDbProviderFromConfig
+} from "./chunk-X7PS5EQX.js";
 import {
   getDhalConfigJsonSchema
 } from "./chunk-RQSV6ZNH.js";
@@ -65,13 +65,13 @@ import {
 } from "./chunk-BULVRAC5.js";
 import {
   runDhalReadiness
-} from "./chunk-QYZB36AP.js";
+} from "./chunk-PVVOL2ET.js";
 import {
   DHAL_COMPATIBILITY_MATRIX,
   DHAL_PACKAGE_VERSION,
   DHAL_RELEASE_CHANNEL,
   getDhalCompatibilityMatrix
-} from "./chunk-BXC5H4L2.js";
+} from "./chunk-PQZMP3BG.js";
 import {
   evaluateDhalCiPolicy,
   runDhalDoctor

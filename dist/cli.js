@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 import {
   runDhalReleaseCheck
-} from "./chunk-BQ2PVMHJ.js";
+} from "./chunk-ZZYQFWBN.js";
 import {
   runDhalSupportReport
-} from "./chunk-SEEJSQ4N.js";
+} from "./chunk-6MWX5ZRZ.js";
 import {
   getDhalApiStabilityReport
-} from "./chunk-D4WSKN55.js";
+} from "./chunk-AVUAE5GK.js";
 import "./chunk-JLONUPCX.js";
 import {
   createDhal
-} from "./chunk-UXWLQKOE.js";
-import "./chunk-X7PS5EQX.js";
+} from "./chunk-BDTAGEUX.js";
 import "./chunk-IRZXZAQ4.js";
-import "./chunk-CIHXWQTF.js";
-import "./chunk-54SLRFQ7.js";
+import "./chunk-5I5HJW4S.js";
+import "./chunk-NIFKXCUN.js";
 import {
   runDhalAutosetup
 } from "./chunk-CKDCBSDL.js";
+import "./chunk-X7PS5EQX.js";
 import {
   getDhalConfigJsonSchema
 } from "./chunk-RQSV6ZNH.js";
@@ -34,10 +34,10 @@ import {
 } from "./chunk-BULVRAC5.js";
 import {
   runDhalReadiness
-} from "./chunk-QYZB36AP.js";
+} from "./chunk-PVVOL2ET.js";
 import {
   getDhalCompatibilityMatrix
-} from "./chunk-BXC5H4L2.js";
+} from "./chunk-PQZMP3BG.js";
 import {
   evaluateDhalCiPolicy,
   runDhalDoctor

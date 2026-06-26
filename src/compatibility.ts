@@ -119,7 +119,7 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
     {
       name: "npm",
       range: ">=10",
-      status: "tested",
+      status: "supported",
       notes: "Primary supported package manager and release workflow."
     },
     {

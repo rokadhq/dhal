@@ -2236,7 +2236,7 @@ var DHAL_COMPATIBILITY_MATRIX = {
     {
       name: "npm",
       range: ">=10",
-      status: "tested",
+      status: "supported",
       notes: "Primary supported package manager and release workflow."
     },
     {

@@ -1,7 +1,7 @@
 import {
   OpenTelemetryDhalTelemetry
-} from "../chunk-CIHXWQTF.js";
-import "../chunk-BXC5H4L2.js";
+} from "../chunk-5I5HJW4S.js";
+import "../chunk-PQZMP3BG.js";
 export {
   OpenTelemetryDhalTelemetry
 };
