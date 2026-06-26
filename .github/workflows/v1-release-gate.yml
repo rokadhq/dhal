@@ -24,7 +24,15 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Typecheck
-        run: npm run typecheck
+        id: typecheck
+        shell: bash
+        run: npm run typecheck > typecheck.log 2>&1
+      - name: Upload typecheck diagnostics
+        if: failure() && steps.typecheck.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: typecheck-node-${{ matrix.node }}
+          path: typecheck.log
       - name: Unit and integration tests
         run: npm test
       - name: Build ESM, CommonJS, and declarations
