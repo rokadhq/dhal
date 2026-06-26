@@ -1,0 +1,218 @@
+[
+  {
+    "name": "health check bypass",
+    "method": "GET",
+    "url": "/healthz",
+    "path": "/healthz",
+    "headers": {},
+    "ip": "10.0.0.10",
+    "expected": "allow",
+    "expectedRule": "runtime.bypass"
+  },
+  {
+    "name": "cors preflight bypass",
+    "method": "OPTIONS",
+    "url": "/api/orders",
+    "path": "/api/orders",
+    "headers": {
+      "host": "api.example.test",
+      "origin": "https://app.example.test",
+      "access-control-request-method": "POST"
+    },
+    "ip": "203.0.113.10",
+    "expected": "allow",
+    "expectedRule": "runtime.bypass"
+  },
+  {
+    "name": "normal browser page",
+    "method": "GET",
+    "url": "/dashboard",
+    "path": "/dashboard",
+    "headers": {
+      "host": "app.example.test",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/149.0.0.0 Safari/537.36",
+      "accept": "text/html,application/xhtml+xml",
+      "accept-language": "en-US,en;q=0.9"
+    },
+    "ip": "203.0.113.11",
+    "expected": "allow"
+  },
+  {
+    "name": "static asset without browser headers",
+    "method": "GET",
+    "url": "/assets/app.93fa2.js",
+    "path": "/assets/app.93fa2.js",
+    "headers": {
+      "host": "cdn.example.test"
+    },
+    "ip": "203.0.113.12",
+    "expected": "allow"
+  },
+  {
+    "name": "browser behind proxy while trust proxy disabled",
+    "method": "GET",
+    "url": "/account",
+    "path": "/account",
+    "headers": {
+      "host": "app.example.test",
+      "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+      "accept": "text/html",
+      "accept-language": "en-GB",
+      "x-forwarded-for": "198.51.100.4"
+    },
+    "ip": "10.0.0.20",
+    "expected": "allow"
+  },
+  {
+    "name": "valid JSON API request",
+    "method": "POST",
+    "url": "/api/orders",
+    "path": "/api/orders",
+    "route": "/api/orders",
+    "headers": {
+      "host": "api.example.test",
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json",
+      "content-type": "application/json",
+      "content-length": "39"
+    },
+    "ip": "203.0.113.13",
+    "body": {
+      "sku": "dhal-v1",
+      "quantity": 2
+    },
+    "rawBody": "{\"sku\":\"dhal-v1\",\"quantity\":2}",
+    "expected": "allow"
+  },
+  {
+    "name": "normal form post",
+    "method": "POST",
+    "url": "/contact",
+    "path": "/contact",
+    "headers": {
+      "host": "www.example.test",
+      "user-agent": "Mozilla/5.0",
+      "accept": "text/html",
+      "content-type": "application/x-www-form-urlencoded",
+      "content-length": "32"
+    },
+    "ip": "203.0.113.14",
+    "rawBody": "name=Aryabh&message=Hello%20team",
+    "expected": "allow"
+  },
+  {
+    "name": "graphql JSON request",
+    "method": "POST",
+    "url": "/graphql",
+    "path": "/graphql",
+    "headers": {
+      "host": "api.example.test",
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json",
+      "content-type": "application/json"
+    },
+    "ip": "203.0.113.15",
+    "rawBody": "{\"query\":\"query Viewer { viewer { id name } }\"}",
+    "expected": "allow"
+  },
+  {
+    "name": "signed application webhook",
+    "method": "POST",
+    "url": "/webhooks/provider",
+    "path": "/webhooks/provider",
+    "headers": {
+      "host": "api.example.test",
+      "user-agent": "Provider-Webhooks/1.0",
+      "accept": "application/json",
+      "content-type": "application/json",
+      "x-provider-signature": "sha256=74d67"
+    },
+    "ip": "198.51.100.20",
+    "rawBody": "{\"type\":\"payment.completed\",\"id\":\"evt_123\"}",
+    "expected": "allow"
+  },
+  {
+    "name": "normal login request before failures",
+    "method": "POST",
+    "url": "/api/login",
+    "path": "/api/login",
+    "route": "/api/login",
+    "headers": {
+      "host": "api.example.test",
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json",
+      "content-type": "application/json"
+    },
+    "ip": "203.0.113.16",
+    "rawBody": "{\"email\":\"user@example.test\",\"password\":\"redacted\"}",
+    "expected": "allow"
+  },
+  {
+    "name": "headless-looking static asset request",
+    "method": "GET",
+    "url": "/images/logo.svg",
+    "path": "/images/logo.svg",
+    "headers": {
+      "host": "cdn.example.test",
+      "user-agent": "HeadlessChrome/149.0"
+    },
+    "ip": "203.0.113.17",
+    "expected": "allow"
+  },
+  {
+    "name": "honeypot control",
+    "method": "GET",
+    "url": "/.env",
+    "path": "/.env",
+    "headers": {
+      "host": "app.example.test",
+      "user-agent": "Mozilla/5.0",
+      "accept": "text/html"
+    },
+    "ip": "203.0.113.18",
+    "expected": "would-block",
+    "expectedRule": "honeypot.triggered"
+  },
+  {
+    "name": "path traversal control",
+    "method": "GET",
+    "url": "/download?file=../../etc/passwd",
+    "path": "/download",
+    "headers": {
+      "host": "app.example.test",
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/octet-stream"
+    },
+    "ip": "203.0.113.19",
+    "expected": "would-block",
+    "expectedRule": "signature.path_traversal"
+  },
+  {
+    "name": "sql injection control",
+    "method": "GET",
+    "url": "/users?id=1%20OR%201=1",
+    "path": "/users",
+    "headers": {
+      "host": "app.example.test",
+      "user-agent": "Mozilla/5.0",
+      "accept": "application/json"
+    },
+    "ip": "203.0.113.20",
+    "expected": "would-block",
+    "expectedRule": "signature.sqli"
+  },
+  {
+    "name": "xss control",
+    "method": "GET",
+    "url": "/search?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E",
+    "path": "/search",
+    "headers": {
+      "host": "app.example.test",
+      "user-agent": "Mozilla/5.0",
+      "accept": "text/html"
+    },
+    "ip": "203.0.113.21",
+    "expected": "would-block",
+    "expectedRule": "signature.xss"
+  }
+]
