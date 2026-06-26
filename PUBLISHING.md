@@ -1,57 +1,69 @@
 # Publishing Dhal
 
+Dhal is published primarily to npm through GitHub Actions and npm Trusted Publishing.
+
+## Release prerequisites
+
+Before publishing any v1 build:
+
+```bash
+npm ci
+npm run verify:v1
+npm pack --dry-run
+```
+
+For the current release candidate, the unified release check must report `target: "rc"`, package version `1.0.0-rc.0`, and release channel `rc`.
+
+## CI publishing with Trusted Publishing
+
+The primary workflow is `.github/workflows/publish.yml`.
+
+Required npm configuration:
+
+1. Open the `@rokadhq/dhal` package settings on npm.
+2. Configure the repository `rokadhq/dhal` as a Trusted Publisher.
+3. Set the workflow filename to `publish.yml`.
+4. Publish by creating a GitHub Release or manually dispatching the workflow.
+
+The workflow uses OIDC through `id-token: write`, runs package verification, resolves the npm dist-tag from the semantic version, and publishes without a long-lived npm token.
+
+Resolved tags:
+
+| Version pattern | npm dist-tag |
+| --- | --- |
+| `*-alpha.*` | `alpha` |
+| `*-beta.*` | `beta` |
+| `*-rc.*` | `rc` |
+| other `0.x` | `next` |
+| stable `1.x+` | `latest` |
+
+For `1.0.0-rc.0`, publishing produces:
+
+```text
+@rokadhq/dhal@1.0.0-rc.0
+npm dist-tag: rc
+```
+
 ## Manual local publishing
 
-Use this path for the first public release or when publishing directly from your own machine.
+Local publishing should be limited to recovery scenarios. It does not provide npm Trusted Publishing provenance.
 
 ```bash
-rm -rf node_modules package-lock.json
-npm config set registry https://registry.npmjs.org/
-npm install
-npm run verify:publish
-npm publish --tag next --access public --provenance=false
+npm ci
+npm run verify:v1
+npm publish --tag rc --access public --provenance=false
 ```
 
-Do **not** pass `--provenance` from a normal local terminal. npm provenance requires a supported CI/OIDC provider. Local shells do not expose the OIDC provider metadata npm needs, so npm reports:
+Do not pass `--provenance` from a normal local terminal. Local shells do not provide the OIDC metadata required for trusted provenance.
 
-```txt
-Automatic provenance generation not supported for provider: null
-```
+## Stable v1 promotion
 
-## CI publishing with provenance
+Stable `1.0.0` must:
 
-Use this path after the package is in a public GitHub repository and npm Trusted Publishing is configured for the package.
+- preserve the declared v1 public contract;
+- change the package version to `1.0.0`;
+- change the release channel to `latest`;
+- pass `npm run release:check:stable` and the complete v1 matrix;
+- publish under the `latest` npm dist-tag.
 
-1. Push the repository to GitHub.
-2. On npmjs.com, open the package settings.
-3. Add a Trusted Publisher for the GitHub repository and workflow filename `publish.yml`.
-4. Use `.github/workflows/publish.yml` from this repository.
-5. Create a GitHub release or manually dispatch the workflow.
-
-The CI workflow uses:
-
-```bash
-npm publish --tag next --access public --provenance
-```
-
-## Tags
-
-For pre-1.0 releases, publish with `next` first:
-
-```bash
-npm publish --tag next --access public --provenance=false
-```
-
-After testing:
-
-```bash
-npm dist-tag add @rokadhq/dhal@0.8.2 latest
-```
-
-## Package-name check
-
-```bash
-npm view @rokadhq/dhal --registry=https://registry.npmjs.org/
-```
-
-If this returns `E404`, the name is available. If not, publish under a scope such as `@rokad/dhal`.
+Do not move the `latest` tag to an RC build.
