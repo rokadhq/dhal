@@ -28,7 +28,7 @@ export function getDhalMigrationPlan(): DhalMigrationPlan {
     supportedInputVersions: [null, "1"],
     notes: [
       "Configs without schemaVersion are treated as pre-v0.13 configs and migrated to schemaVersion 1.",
-      "Unknown future schema versions are not downgraded automatically.",
+      "Unknown schema versions are rejected.",
       "Run `npx dhal migrate dhal.json --write` before adopting v1-bound configs."
     ]
   };
@@ -48,11 +48,7 @@ export function migrateDhalConfig(input: unknown): DhalMigrationResult {
     });
     changed = true;
   } else if (rawVersion !== DHAL_CONFIG_SCHEMA_VERSION) {
-    notices.push({
-      level: "warning",
-      code: "schemaVersion.unknown",
-      message: `Input schemaVersion '${rawVersion}' is not explicitly supported by this Dhal release. Attempting current-schema normalization only.`
-    });
+    throw new Error(`Unsupported schemaVersion '${rawVersion}'. Expected '${DHAL_CONFIG_SCHEMA_VERSION}'.`);
   }
 
   const normalized = {
