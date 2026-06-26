@@ -1,5 +1,5 @@
 export { createDhal } from "./engine.js";
-export { loadDhalConfig, defaultConfig } from "./config.js";
+export { loadDhalConfig, defaultConfig, DHAL_CONFIG_SCHEMA_VERSION } from "./config.js";
 export { getDhalConfigJsonSchema } from "./config-schema.js";
 export { MemoryRateLimitStore } from "./stores/memory-rate-limit-store.js";
 export { MemorySignalStore } from "./stores/memory-signal-store.js";
@@ -19,6 +19,7 @@ export { DHAL_PRESETS, applyDhalPreset, getDhalPreset, listDhalPresets } from ".
 export { applyPolicyToDecision, resolveSeverity, shouldEmitSecurityEvent, severityAtLeast } from "./policy.js";
 export { buildCredentialKey, isCredentialRoute } from "./rules/credential-stuffing-rule.js";
 export type {
+  DhalConfigSchemaVersion,
   DhalAction,
   DhalApiPositiveSecurityConfig,
   DhalAutosetupOptions,
@@ -63,3 +64,6 @@ export type { DhalPreset, DhalPresetName, DhalPresetSummary } from "./presets.js
 export { runDhalSupportReport, type DhalSupportReport, type DhalSupportReportOptions } from "./report.js";
 export { DHAL_COMPATIBILITY_MATRIX, DHAL_PACKAGE_VERSION, DHAL_RELEASE_CHANNEL, getDhalCompatibilityMatrix } from "./compatibility.js";
 export { runDhalReadiness, type DhalReadinessCheck, type DhalReadinessOptions, type DhalReadinessResult } from "./readiness.js";
+
+export { getDhalMigrationPlan, migrateDhalConfig, type DhalMigrationNotice, type DhalMigrationPlan, type DhalMigrationResult } from "./migrations.js";
+export { DHAL_API_SURFACES, getDhalApiStabilityReport, type DhalApiStabilityLevel, type DhalApiSurface, type DhalStabilityReport } from "./stability.js";
