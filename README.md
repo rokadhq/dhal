@@ -2,6 +2,8 @@
 
 **App-native web application firewall and request-security middleware for Node.js.**
 
+[Product page](https://rokad.co/en/open-source/dhal) · [Documentation](https://rokad.co/en/docs/dhal)
+
 Dhal runs inside the application request path and provides deterministic, route-aware controls for Express, Fastify, and raw `node:http` applications.
 
 It includes:
@@ -80,7 +82,6 @@ import http from "node:http";
 import { createNodeHttpDhal } from "@rokadhq/dhal/node-http";
 
 const protection = createNodeHttpDhal({ configPath: "dhal.json" });
-
 const server = http.createServer(async (req, res) => {
   const decision = await protection.inspect(req, res);
   if (decision.action === "block") return;
@@ -412,6 +413,7 @@ Use it as part of defense in depth with:
 
 ## Documentation
 
+- [Dhal documentation](https://rokad.co/en/docs/dhal)
 - `PRODUCTION_DEPLOYMENT.md`
 - `SECURITY.md`
 - `SUPPORT_POLICY.md`
@@ -426,6 +428,10 @@ Use it as part of defense in depth with:
 Use GitHub Issues for reproducible defects and GitHub Discussions for integration questions. Report vulnerabilities privately through GitHub Security Advisories.
 
 See `SUPPORT_POLICY.md` for supported release lines, deprecation commitments, and response targets.
+
+## About Rokad
+
+Dhal is developed and maintained by [Rokad](https://rokad.co/), a technology company focused on software, artificial intelligence, digital infrastructure, and open-source developer tools.
 
 ## License
 
