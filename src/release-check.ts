@@ -60,9 +60,14 @@ export function runDhalReleaseCheck(options: DhalReleaseCheckOptions = {}): Dhal
   const schemaVersion = isRecord(schemaProperties.schemaVersion) ? schemaProperties.schemaVersion.const : undefined;
   add(findings, schemaVersion === "1", "schema.version", "Published configuration schema is schemaVersion 1.", `Unexpected schemaVersion contract: ${String(schemaVersion)}`);
 
-  const buildTargets = collectTargets(packageJson.exports)
-    .concat([packageJson.main, packageJson.module, packageJson.types, ...Object.values(isRecord(packageJson.bin) ? packageJson.bin : {})])
-    .filter((entry): entry is string => typeof entry === "string" && entry.startsWith("./"));
+  const directTargets = [
+    packageJson.main,
+    packageJson.module,
+    packageJson.types,
+    ...Object.values(isRecord(packageJson.bin) ? packageJson.bin : {})
+  ].filter((entry): entry is string => typeof entry === "string");
+  const buildTargets = [...collectTargets(packageJson.exports), ...directTargets]
+    .filter((entry) => entry.startsWith("./"));
   const missingBuildTargets = [...new Set(buildTargets)].filter((entry) => !existsSync(resolve(rootDir, entry)));
   if (missingBuildTargets.length === 0) {
     findings.push({ code: "build.targets", level: "pass", message: "Every published build target exists." });
