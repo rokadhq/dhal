@@ -42,12 +42,12 @@ jobs:
       - name: Stage RC artifact
         shell: bash
         run: |
-          mkdir -p .rc-artifact/src .rc-artifact/tests
-          cp package.json package-lock.json CHANGELOG.md V1_CONTRACT.md V1_RELEASE_PLAN.md dhal.schema.json .rc-artifact/
-          cp src/config-schema.ts src/compatibility.ts .rc-artifact/src/
-          cp tests/engine.test.ts tests/release-check.test.ts .rc-artifact/tests/
+          mkdir -p rc-artifact/src rc-artifact/tests
+          cp package.json package-lock.json CHANGELOG.md V1_CONTRACT.md V1_RELEASE_PLAN.md dhal.schema.json rc-artifact/
+          cp src/config-schema.ts src/compatibility.ts rc-artifact/src/
+          cp tests/engine.test.ts tests/release-check.test.ts rc-artifact/tests/
       - uses: actions/upload-artifact@v4
         with:
           name: dhal-v1.0.0-rc.0-preparation
-          path: .rc-artifact
+          path: rc-artifact
           if-no-files-found: error
