@@ -5,12 +5,22 @@ import {
   RedisSignalStore
 } from "./chunk-7AA6S7PN.js";
 import {
+  runDhalReleaseCheck
+} from "./chunk-BQ2PVMHJ.js";
+import {
   runDhalSupportReport
-} from "./chunk-APJ5JOI4.js";
+} from "./chunk-SEEJSQ4N.js";
 import {
   DHAL_API_SURFACES,
   getDhalApiStabilityReport
-} from "./chunk-6ODIBQ3U.js";
+} from "./chunk-D4WSKN55.js";
+import {
+  DHAL_V1_CLI_COMMANDS,
+  DHAL_V1_CONTRACT_VERSION,
+  DHAL_V1_PUBLIC_EXPORTS,
+  getDhalV1Contract,
+  validateDhalV1Contract
+} from "./chunk-JLONUPCX.js";
 import {
   CompositeDhalTelemetry,
   DhalEventBus,
@@ -23,30 +33,30 @@ import {
   resolveSeverity,
   severityAtLeast,
   shouldEmitSecurityEvent
-} from "./chunk-MANVZKED.js";
-import {
-  MemorySignalStore
-} from "./chunk-IRZXZAQ4.js";
-import {
-  OpenTelemetryDhalTelemetry
-} from "./chunk-JCY2QFLP.js";
-import {
-  WebhookDhalTelemetry
-} from "./chunk-BGMTMZGL.js";
-import {
-  runDhalAutosetup
-} from "./chunk-CKDCBSDL.js";
+} from "./chunk-UXWLQKOE.js";
 import {
   AbuseIpDbProvider,
   createAbuseIpDbProviderFromConfig
 } from "./chunk-X7PS5EQX.js";
 import {
+  MemorySignalStore
+} from "./chunk-IRZXZAQ4.js";
+import {
+  OpenTelemetryDhalTelemetry
+} from "./chunk-CIHXWQTF.js";
+import {
+  WebhookDhalTelemetry
+} from "./chunk-54SLRFQ7.js";
+import {
+  runDhalAutosetup
+} from "./chunk-CKDCBSDL.js";
+import {
   getDhalConfigJsonSchema
-} from "./chunk-VAJ4H2RV.js";
+} from "./chunk-RQSV6ZNH.js";
 import {
   getDhalMigrationPlan,
   migrateDhalConfig
-} from "./chunk-ZGVV7H2U.js";
+} from "./chunk-IJAAGF2J.js";
 import {
   DHAL_PRESETS,
   applyDhalPreset,
@@ -55,13 +65,13 @@ import {
 } from "./chunk-BULVRAC5.js";
 import {
   runDhalReadiness
-} from "./chunk-HBRYRBZJ.js";
+} from "./chunk-QYZB36AP.js";
 import {
   DHAL_COMPATIBILITY_MATRIX,
   DHAL_PACKAGE_VERSION,
   DHAL_RELEASE_CHANNEL,
   getDhalCompatibilityMatrix
-} from "./chunk-Q76R3BJI.js";
+} from "./chunk-BXC5H4L2.js";
 import {
   evaluateDhalCiPolicy,
   runDhalDoctor
@@ -86,6 +96,9 @@ export {
   DHAL_PRESETS,
   DHAL_RELEASE_CHANNEL,
   DHAL_RULE_CATALOG,
+  DHAL_V1_CLI_COMMANDS,
+  DHAL_V1_CONTRACT_VERSION,
+  DHAL_V1_PUBLIC_EXPORTS,
   DhalEventBus,
   IpReputationCache,
   MemoryRateLimitStore,
@@ -108,6 +121,7 @@ export {
   getDhalMigrationPlan,
   getDhalPreset,
   getDhalRuleCatalog,
+  getDhalV1Contract,
   isCredentialRoute,
   listDhalPresets,
   loadDhalConfig,
@@ -116,7 +130,9 @@ export {
   runDhalAutosetup,
   runDhalDoctor,
   runDhalReadiness,
+  runDhalReleaseCheck,
   runDhalSupportReport,
   severityAtLeast,
-  shouldEmitSecurityEvent
+  shouldEmitSecurityEvent,
+  validateDhalV1Contract
 };

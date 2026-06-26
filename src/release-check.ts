@@ -1,0 +1,133 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { DHAL_PACKAGE_VERSION, DHAL_RELEASE_CHANNEL } from "./compatibility.js";
+import { getDhalConfigJsonSchema } from "./config-schema.js";
+import { DHAL_V1_PUBLIC_EXPORTS, validateDhalV1Contract } from "./v1-contract.js";
+
+export type DhalReleaseTarget = "development" | "rc" | "stable";
+export type DhalReleaseCheckLevel = "pass" | "warning" | "fail";
+
+export type DhalReleaseCheckFinding = {
+  code: string;
+  level: DhalReleaseCheckLevel;
+  message: string;
+};
+
+export type DhalReleaseCheckResult = {
+  ok: boolean;
+  target: DhalReleaseTarget;
+  packageVersion: string;
+  releaseChannel: string;
+  findings: DhalReleaseCheckFinding[];
+};
+
+export type DhalReleaseCheckOptions = {
+  rootDir?: string | undefined;
+  target?: DhalReleaseTarget | undefined;
+  requireBuild?: boolean | undefined;
+};
+
+export function runDhalReleaseCheck(options: DhalReleaseCheckOptions = {}): DhalReleaseCheckResult {
+  const rootDir = resolve(options.rootDir ?? process.cwd());
+  const target = options.target ?? "development";
+  const requireBuild = options.requireBuild ?? target !== "development";
+  const releaseChannel = String(DHAL_RELEASE_CHANNEL);
+  const findings: DhalReleaseCheckFinding[] = [];
+  const packageJson = readJson(resolve(rootDir, "package.json"));
+  const packageLock = readJson(resolve(rootDir, "package-lock.json"));
+  const packageVersion = stringValue(packageJson.version);
+
+  add(findings, packageJson.name === "@rokadhq/dhal", "package.name", "Package name is @rokadhq/dhal.", `Unexpected package name: ${String(packageJson.name)}`);
+  add(findings, packageVersion === DHAL_PACKAGE_VERSION, "version.compatibility", "Package and compatibility versions match.", `package.json is ${packageVersion}; compatibility metadata is ${DHAL_PACKAGE_VERSION}.`);
+
+  const lockRoot = isRecord(packageLock.packages) ? packageLock.packages[""] : undefined;
+  const lockVersion = isRecord(lockRoot) ? stringValue(lockRoot.version) : stringValue(packageLock.version);
+  add(findings, lockVersion === packageVersion, "version.lockfile", "Package lock version matches package.json.", `package-lock.json is ${lockVersion}; package.json is ${packageVersion}.`);
+
+  const contract = validateDhalV1Contract();
+  add(findings, contract.ok, "contract.valid", "The machine-readable v1 contract is valid.", contract.issues.join(" ") || "The v1 contract is invalid.");
+
+  const exportMap = isRecord(packageJson.exports) ? packageJson.exports : {};
+  const declaredExports = new Set(Object.keys(exportMap));
+  const contractExports = new Set(DHAL_V1_PUBLIC_EXPORTS.map((entry) => entry.path));
+  const missingFromPackage = [...contractExports].filter((entry) => !declaredExports.has(entry));
+  const unclassified = [...declaredExports].filter((entry) => !contractExports.has(entry));
+  add(findings, missingFromPackage.length === 0, "exports.contract_missing", "Every v1 contract export exists in package.json.", `Missing package exports: ${missingFromPackage.join(", ")}`);
+  add(findings, unclassified.length === 0, "exports.unclassified", "Every package export is classified by the v1 contract.", `Unclassified package exports: ${unclassified.join(", ")}`);
+
+  const schema = getDhalConfigJsonSchema();
+  const schemaProperties = isRecord(schema.properties) ? schema.properties : {};
+  const schemaVersion = isRecord(schemaProperties.schemaVersion) ? schemaProperties.schemaVersion.const : undefined;
+  add(findings, schemaVersion === "1", "schema.version", "Published configuration schema is schemaVersion 1.", `Unexpected schemaVersion contract: ${String(schemaVersion)}`);
+
+  const directTargets = [
+    packageJson.main,
+    packageJson.module,
+    packageJson.types,
+    ...Object.values(isRecord(packageJson.bin) ? packageJson.bin : {})
+  ].filter((entry): entry is string => typeof entry === "string");
+  const buildTargets = [...collectTargets(packageJson.exports), ...directTargets]
+    .filter((entry) => entry.startsWith("./"));
+  const missingBuildTargets = [...new Set(buildTargets)].filter((entry) => !existsSync(resolve(rootDir, entry)));
+  if (missingBuildTargets.length === 0) {
+    findings.push({ code: "build.targets", level: "pass", message: "Every published build target exists." });
+  } else {
+    findings.push({
+      code: "build.targets",
+      level: requireBuild ? "fail" : "warning",
+      message: `Missing generated build targets: ${missingBuildTargets.join(", ")}`
+    });
+  }
+
+  validateTarget(findings, target, packageVersion, releaseChannel);
+
+  return {
+    ok: findings.every((finding) => finding.level !== "fail"),
+    target,
+    packageVersion,
+    releaseChannel,
+    findings
+  };
+}
+
+function validateTarget(findings: DhalReleaseCheckFinding[], target: DhalReleaseTarget, version: string, releaseChannel: string): void {
+  if (target === "development") {
+    findings.push({ code: "release.target", level: "pass", message: "Development release checks selected." });
+    return;
+  }
+
+  if (target === "rc") {
+    add(findings, /^1\.0\.0-rc\.\d+$/.test(version), "release.version", "Version is a Dhal v1 release candidate.", `RC target requires 1.0.0-rc.N; found ${version}.`);
+    add(findings, releaseChannel === "rc", "release.channel", "Release channel is rc.", `RC target requires release channel rc; found ${releaseChannel}.`);
+    return;
+  }
+
+  add(findings, /^1\.\d+\.\d+$/.test(version), "release.version", "Version is a stable v1 release.", `Stable target requires 1.x.y without a prerelease suffix; found ${version}.`);
+  add(findings, releaseChannel === "latest", "release.channel", "Release channel is latest.", `Stable target requires release channel latest; found ${releaseChannel}.`);
+}
+
+function add(findings: DhalReleaseCheckFinding[], condition: boolean, code: string, pass: string, fail: string): void {
+  findings.push({ code, level: condition ? "pass" : "fail", message: condition ? pass : fail });
+}
+
+function collectTargets(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(collectTargets);
+  if (isRecord(value)) return Object.values(value).flatMap(collectTargets);
+  return [];
+}
+
+function readJson(path: string): Record<string, unknown> {
+  if (!existsSync(path)) throw new Error(`Required release file is missing: ${path}`);
+  const value = JSON.parse(readFileSync(path, "utf8")) as unknown;
+  if (!isRecord(value)) throw new Error(`Expected a JSON object in ${path}`);
+  return value;
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value : "unknown";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}

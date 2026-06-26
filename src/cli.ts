@@ -14,6 +14,7 @@ import { getDhalCompatibilityMatrix } from "./compatibility.js";
 import { runDhalReadiness } from "./readiness.js";
 import { getDhalMigrationPlan, migrateDhalConfig } from "./migrations.js";
 import { getDhalApiStabilityReport } from "./stability.js";
+import { runDhalReleaseCheck, type DhalReleaseTarget } from "./release-check.js";
 import type { DhalAutosetupProvider, DhalRequest } from "./types.js";
 
 const argv = process.argv.slice(2);
@@ -38,6 +39,11 @@ async function main(): Promise<void> {
     case "rules": return output({ rules: getDhalRuleCatalog(loadDhalConfig(configPath)) });
     case "compat": case "compatibility": return output(getDhalCompatibilityMatrix());
     case "stability": case "api-stability": return output(getDhalApiStabilityReport());
+    case "release-check": return finish(runDhalReleaseCheck({
+      rootDir: value("--root") ?? process.cwd(),
+      target: (value("--target") ?? "development") as DhalReleaseTarget,
+      requireBuild: has("--require-build") ? true : undefined
+    }));
     case "readiness": case "v1-readiness": return finish(runDhalReadiness({ configPath, production: has("--production"), minScore: numberValue("--min-score") }));
     case "presets": case "preset": return presets(configPath, pos);
     case "autosetup": return autosetup(pos[0] ?? ".");
@@ -149,7 +155,7 @@ function numberValue(flag: string): number | undefined {
 }
 
 function help(): void {
-  console.log(`Dhal CLI\n\nCommands: init, test-config, explain-config, schema, migrate, ci, doctor, report, rules, readiness, compat, stability, presets, autosetup, replay, simulate\n\nUse --json for machine-readable output.`);
+  console.log(`Dhal CLI\n\nCommands: init, test-config, explain-config, schema, migrate, ci, doctor, report, rules, readiness, compat, stability, release-check, presets, autosetup, replay, simulate\n\nRelease gate: dhal release-check --target development|rc|stable [--require-build]\n\nUse --json for machine-readable output.`);
 }
 
 void main().catch((error) => {

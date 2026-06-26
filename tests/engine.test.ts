@@ -483,14 +483,14 @@ describe("Dhal v0.11 alpha-public hardening", () => {
   });
 });
 
-describe("Dhal v0.13 beta v1 contract hardening", () => {
+describe("Dhal v1 release candidate contract hardening", () => {
   it("exposes compatibility matrix for public package consumers", async () => {
     const { getDhalCompatibilityMatrix } = await import("../src/compatibility.js");
     const matrix = getDhalCompatibilityMatrix();
 
     expect(matrix.packageName).toBe("@rokadhq/dhal");
-    expect(matrix.version).toBe("0.13.0-beta.1");
-    expect(matrix.releaseChannel).toBe("beta");
+    expect(matrix.version).toBe("1.0.0-rc.0");
+    expect(matrix.releaseChannel).toBe("rc");
     expect(matrix.frameworks.some((entry) => entry.name === "Express" && entry.status === "supported")).toBe(true);
   });
 
@@ -499,7 +499,7 @@ describe("Dhal v0.13 beta v1 contract hardening", () => {
     const result = runDhalReadiness({ configPath: "./missing-dhal-readiness-config.json", production: true, env: {} });
 
     expect(result.packageName).toBe("@rokadhq/dhal");
-    expect(result.releaseChannel).toBe("beta");
+    expect(result.releaseChannel).toBe("rc");
     expect(result.target).toBe("production");
     expect(result.score).toBeLessThanOrEqual(100);
     expect(result.checks.some((check) => check.code === "config.missing")).toBe(true);
@@ -522,8 +522,8 @@ describe("Dhal v0.13 beta v1 contract hardening", () => {
     const { getDhalApiStabilityReport } = await import("../src/stability.js");
     const report = getDhalApiStabilityReport();
 
-    expect(report.version).toBe("0.13.0-beta.1");
-    expect(report.surfaces.some((surface) => surface.name === "Express adapter" && surface.level === "stable-for-v1")).toBe(true);
+    expect(report.version).toBe("1.0.0-rc.0");
+    expect(report.surfaces.some((surface) => surface.name === "Express adapter" && surface.level === "stable")).toBe(true);
     expect(report.surfaces.some((surface) => surface.name === "AI autosetup" && surface.level === "experimental")).toBe(true);
   });
 
@@ -531,8 +531,8 @@ describe("Dhal v0.13 beta v1 contract hardening", () => {
     const { runDhalSupportReport } = await import("../src/report.js");
     const report = runDhalSupportReport({ configPath: "./missing-dhal-report-v012-config.json", env: {} });
 
-    expect(report.version).toBe("0.13.0-beta.1");
-    expect(report.releaseChannel).toBe("beta");
+    expect(report.version).toBe("1.0.0-rc.0");
+    expect(report.releaseChannel).toBe("rc");
     expect(report.readiness.packageName).toBe("@rokadhq/dhal");
   });
 });

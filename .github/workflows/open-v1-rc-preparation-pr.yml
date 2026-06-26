@@ -1,0 +1,13 @@
+name: Archived Dhal v1 RC Preparation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archived:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "The v1.0.0-rc.0 preparation has been completed and this workflow is archived."

@@ -1,4 +1,5 @@
 export type DhalCompatibilityStatus = "supported" | "tested" | "optional" | "experimental";
+export type DhalContractStability = "experimental" | "beta-stabilizing" | "release-candidate" | "stable";
 
 export type DhalCompatibilityTarget = {
   name: string;
@@ -16,15 +17,15 @@ export type DhalCompatibilityMatrix = {
   integrations: DhalCompatibilityTarget[];
   packageManagers: DhalCompatibilityTarget[];
   stability: {
-    publicApi: "beta-stabilizing";
-    configSchema: "beta-stabilizing";
-    cli: "beta-stabilizing";
+    publicApi: DhalContractStability;
+    configSchema: DhalContractStability;
+    cli: DhalContractStability;
     note: string;
   };
 };
 
-export const DHAL_PACKAGE_VERSION = "0.13.0-beta.1";
-export const DHAL_RELEASE_CHANNEL = "beta" as const;
+export const DHAL_PACKAGE_VERSION = "1.0.0-rc.0";
+export const DHAL_RELEASE_CHANNEL = "rc" as const;
 
 export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
   packageName: "@rokadhq/dhal",
@@ -33,21 +34,21 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
   node: [
     {
       name: "Node.js",
-      range: ">=18.18.0",
+      range: ">=20.0.0",
       status: "supported",
-      notes: "Minimum supported runtime for published package execution."
+      notes: "Minimum runtime for the Dhal v1 line."
     },
     {
-      name: "Node.js 20 LTS",
-      range: ">=20.0.0",
+      name: "Node.js 20",
+      range: ">=20.0.0 <22.0.0",
       status: "tested",
-      notes: "Recommended production baseline for long-term support deployments."
+      notes: "Compatibility baseline for existing production deployments."
     },
     {
       name: "Node.js 22/24",
       range: ">=22.0.0",
       status: "tested",
-      notes: "Used by Dhal release workflows and publish verification."
+      notes: "Primary runtime matrix for v1 verification and release workflows."
     }
   ],
   frameworks: [
@@ -55,19 +56,19 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
       name: "Express",
       range: ">=4.18.0 || >=5.0.0",
       status: "supported",
-      notes: "Use @rokadhq/dhal/express."
+      notes: "Express 4 and 5 are exercised by the v1 adapter matrix."
     },
     {
       name: "Fastify",
       range: ">=4.0.0 || >=5.0.0",
       status: "supported",
-      notes: "Use @rokadhq/dhal/fastify."
+      notes: "Fastify 4 and 5 are exercised by the v1 adapter matrix."
     },
     {
       name: "node:http",
       range: "Node built-in",
       status: "supported",
-      notes: "Use @rokadhq/dhal/node-http."
+      notes: "Raw node:http behavior is covered by integration tests."
     },
     {
       name: "NestJS",
@@ -81,13 +82,19 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
       name: "Redis / Valkey",
       range: "ioredis >=5.0.0 compatible client",
       status: "supported",
-      notes: "Use distributed stores for multi-instance production deployments."
+      notes: "Redis 7 and Valkey 8 multi-instance contracts are exercised in CI."
     },
     {
       name: "OpenTelemetry API",
       range: ">=1.8.0",
       status: "optional",
-      notes: "Use @rokadhq/dhal/telemetry/otel when OTel is already configured in the app."
+      notes: "Use @rokadhq/dhal/telemetry/otel when OTel is configured in the app."
+    },
+    {
+      name: "Signed webhook telemetry",
+      range: "HTTP/HTTPS endpoint",
+      status: "supported",
+      notes: "HMAC signing and current package metadata are integration-tested."
     },
     {
       name: "AbuseIPDB-style reputation",
@@ -99,11 +106,11 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
       name: "AI SDK autosetup",
       range: "ai >=5.0.0 plus optional provider packages",
       status: "experimental",
-      notes: "Generates proposed config; review before enforcing."
+      notes: "Generates proposed configuration and remains outside the stable v1 contract."
     },
     {
       name: "GitHub Actions publishing",
-      range: "npm Trusted Publishing or token fallback",
+      range: "npm Trusted Publishing",
       status: "supported",
       notes: "npmjs publishing is primary; GitHub Packages publishing is optional."
     }
@@ -119,14 +126,14 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
       name: "pnpm / yarn / bun",
       range: "modern versions",
       status: "optional",
-      notes: "Expected to work for package consumption; release verification currently uses npm."
+      notes: "Expected to work for consumption; release verification uses npm."
     }
   ],
   stability: {
-    publicApi: "beta-stabilizing",
-    configSchema: "beta-stabilizing",
-    cli: "beta-stabilizing",
-    note: "Dhal v0.13 introduces schemaVersion 1 and migration checks as the v1-bound configuration contract. Avoid breaking public imports, config keys, and CLI names unless a migration path is provided."
+    publicApi: "release-candidate",
+    configSchema: "stable",
+    cli: "release-candidate",
+    note: "Dhal 1.0.0-rc.0 freezes schemaVersion 1 and the stable export/CLI inventories. RC feedback may fix defects but must not silently break the declared v1 contract."
   }
 };
 

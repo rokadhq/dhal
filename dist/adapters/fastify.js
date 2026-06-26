@@ -2,21 +2,24 @@ import {
   createDhal,
   extractClientIp,
   extractIdentity
-} from "../chunk-MANVZKED.js";
-import "../chunk-IRZXZAQ4.js";
-import "../chunk-JCY2QFLP.js";
-import "../chunk-BGMTMZGL.js";
+} from "../chunk-UXWLQKOE.js";
 import "../chunk-X7PS5EQX.js";
+import "../chunk-IRZXZAQ4.js";
+import "../chunk-CIHXWQTF.js";
+import "../chunk-54SLRFQ7.js";
+import "../chunk-BXC5H4L2.js";
 import "../chunk-I43VAMHW.js";
 
 // src/adapters/fastify.ts
 var normalizedRequestSymbol = /* @__PURE__ */ Symbol("dhal.normalizedRequest");
+var skipOverrideSymbol = /* @__PURE__ */ Symbol.for("skip-override");
+var displayNameSymbol = /* @__PURE__ */ Symbol.for("fastify.display-name");
 function dhalFastify(options) {
   const engine = createDhal(options);
   return dhalFastifyFromEngine(engine);
 }
 function dhalFastifyFromEngine(engine) {
-  return async function dhalFastifyPlugin(fastify) {
+  const plugin = async function dhalFastifyPlugin(fastify) {
     fastify.addHook("preHandler", async (request, reply) => {
       const typedRequest = request;
       const normalized = normalizeFastifyRequest(typedRequest, engine);
@@ -39,6 +42,9 @@ function dhalFastifyFromEngine(engine) {
       }
     });
   };
+  Object.defineProperty(plugin, skipOverrideSymbol, { value: true });
+  Object.defineProperty(plugin, displayNameSymbol, { value: "dhal" });
+  return plugin;
 }
 function normalizeFastifyRequest(req, engine) {
   const headers = lowerCaseHeaders(req.headers);

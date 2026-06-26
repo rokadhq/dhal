@@ -64,6 +64,17 @@ export type { DhalPreset, DhalPresetName, DhalPresetSummary } from "./presets.js
 export { runDhalSupportReport, type DhalSupportReport, type DhalSupportReportOptions } from "./report.js";
 export { DHAL_COMPATIBILITY_MATRIX, DHAL_PACKAGE_VERSION, DHAL_RELEASE_CHANNEL, getDhalCompatibilityMatrix } from "./compatibility.js";
 export { runDhalReadiness, type DhalReadinessCheck, type DhalReadinessOptions, type DhalReadinessResult } from "./readiness.js";
+export { runDhalReleaseCheck, type DhalReleaseCheckFinding, type DhalReleaseCheckLevel, type DhalReleaseCheckOptions, type DhalReleaseCheckResult, type DhalReleaseTarget } from "./release-check.js";
 
 export { getDhalMigrationPlan, migrateDhalConfig, type DhalMigrationNotice, type DhalMigrationPlan, type DhalMigrationResult } from "./migrations.js";
 export { DHAL_API_SURFACES, getDhalApiStabilityReport, type DhalApiStabilityLevel, type DhalApiSurface, type DhalStabilityReport } from "./stability.js";
+export {
+  DHAL_V1_CLI_COMMANDS,
+  DHAL_V1_CONTRACT_VERSION,
+  DHAL_V1_PUBLIC_EXPORTS,
+  getDhalV1Contract,
+  validateDhalV1Contract,
+  type DhalV1ContractValidation,
+  type DhalV1PublicExport,
+  type DhalV1SurfaceStability
+} from "./v1-contract.js";

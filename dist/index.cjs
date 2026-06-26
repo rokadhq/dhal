@@ -39,6 +39,9 @@ __export(index_exports, {
   DHAL_PRESETS: () => DHAL_PRESETS,
   DHAL_RELEASE_CHANNEL: () => DHAL_RELEASE_CHANNEL,
   DHAL_RULE_CATALOG: () => DHAL_RULE_CATALOG,
+  DHAL_V1_CLI_COMMANDS: () => DHAL_V1_CLI_COMMANDS,
+  DHAL_V1_CONTRACT_VERSION: () => DHAL_V1_CONTRACT_VERSION,
+  DHAL_V1_PUBLIC_EXPORTS: () => DHAL_V1_PUBLIC_EXPORTS,
   DhalEventBus: () => DhalEventBus,
   IpReputationCache: () => IpReputationCache,
   MemoryRateLimitStore: () => MemoryRateLimitStore,
@@ -61,6 +64,7 @@ __export(index_exports, {
   getDhalMigrationPlan: () => getDhalMigrationPlan,
   getDhalPreset: () => getDhalPreset,
   getDhalRuleCatalog: () => getDhalRuleCatalog,
+  getDhalV1Contract: () => getDhalV1Contract,
   isCredentialRoute: () => isCredentialRoute,
   listDhalPresets: () => listDhalPresets,
   loadDhalConfig: () => loadDhalConfig,
@@ -69,9 +73,11 @@ __export(index_exports, {
   runDhalAutosetup: () => runDhalAutosetup,
   runDhalDoctor: () => runDhalDoctor,
   runDhalReadiness: () => runDhalReadiness,
+  runDhalReleaseCheck: () => runDhalReleaseCheck,
   runDhalSupportReport: () => runDhalSupportReport,
   severityAtLeast: () => severityAtLeast,
-  shouldEmitSecurityEvent: () => shouldEmitSecurityEvent
+  shouldEmitSecurityEvent: () => shouldEmitSecurityEvent,
+  validateDhalV1Contract: () => validateDhalV1Contract
 });
 module.exports = __toCommonJS(index_exports);
 
@@ -1883,6 +1889,122 @@ var DhalEventBus = class extends import_node_events.EventEmitter {
   }
 };
 
+// src/compatibility.ts
+var DHAL_PACKAGE_VERSION = "1.0.0-rc.0";
+var DHAL_RELEASE_CHANNEL = "rc";
+var DHAL_COMPATIBILITY_MATRIX = {
+  packageName: "@rokadhq/dhal",
+  version: DHAL_PACKAGE_VERSION,
+  releaseChannel: DHAL_RELEASE_CHANNEL,
+  node: [
+    {
+      name: "Node.js",
+      range: ">=20.0.0",
+      status: "supported",
+      notes: "Minimum runtime for the Dhal v1 line."
+    },
+    {
+      name: "Node.js 20",
+      range: ">=20.0.0 <22.0.0",
+      status: "tested",
+      notes: "Compatibility baseline for existing production deployments."
+    },
+    {
+      name: "Node.js 22/24",
+      range: ">=22.0.0",
+      status: "tested",
+      notes: "Primary runtime matrix for v1 verification and release workflows."
+    }
+  ],
+  frameworks: [
+    {
+      name: "Express",
+      range: ">=4.18.0 || >=5.0.0",
+      status: "supported",
+      notes: "Express 4 and 5 are exercised by the v1 adapter matrix."
+    },
+    {
+      name: "Fastify",
+      range: ">=4.0.0 || >=5.0.0",
+      status: "supported",
+      notes: "Fastify 4 and 5 are exercised by the v1 adapter matrix."
+    },
+    {
+      name: "node:http",
+      range: "Node built-in",
+      status: "supported",
+      notes: "Raw node:http behavior is covered by integration tests."
+    },
+    {
+      name: "NestJS",
+      range: "Express/Fastify adapters",
+      status: "optional",
+      notes: "Integrate through the underlying Express or Fastify adapter."
+    }
+  ],
+  integrations: [
+    {
+      name: "Redis / Valkey",
+      range: "ioredis >=5.0.0 compatible client",
+      status: "supported",
+      notes: "Redis 7 and Valkey 8 multi-instance contracts are exercised in CI."
+    },
+    {
+      name: "OpenTelemetry API",
+      range: ">=1.8.0",
+      status: "optional",
+      notes: "Use @rokadhq/dhal/telemetry/otel when OTel is configured in the app."
+    },
+    {
+      name: "Signed webhook telemetry",
+      range: "HTTP/HTTPS endpoint",
+      status: "supported",
+      notes: "HMAC signing and current package metadata are integration-tested."
+    },
+    {
+      name: "AbuseIPDB-style reputation",
+      range: "API key configured by environment variable",
+      status: "optional",
+      notes: "Use cache-first behavior and prefer async mode on public APIs."
+    },
+    {
+      name: "AI SDK autosetup",
+      range: "ai >=5.0.0 plus optional provider packages",
+      status: "experimental",
+      notes: "Generates proposed configuration and remains outside the stable v1 contract."
+    },
+    {
+      name: "GitHub Actions publishing",
+      range: "npm Trusted Publishing",
+      status: "supported",
+      notes: "npmjs publishing is primary; GitHub Packages publishing is optional."
+    }
+  ],
+  packageManagers: [
+    {
+      name: "npm",
+      range: ">=10",
+      status: "tested",
+      notes: "Primary supported package manager and release workflow."
+    },
+    {
+      name: "pnpm / yarn / bun",
+      range: "modern versions",
+      status: "optional",
+      notes: "Expected to work for consumption; release verification uses npm."
+    }
+  ],
+  stability: {
+    publicApi: "release-candidate",
+    configSchema: "stable",
+    cli: "release-candidate",
+    note: "Dhal 1.0.0-rc.0 freezes schemaVersion 1 and the stable export/CLI inventories. RC feedback may fix defects but must not silently break the declared v1 contract."
+  }
+};
+function getDhalCompatibilityMatrix() {
+  return DHAL_COMPATIBILITY_MATRIX;
+}
+
 // src/telemetry/otel.ts
 var OpenTelemetryDhalTelemetry = class {
   constructor(options) {
@@ -1896,8 +2018,8 @@ var OpenTelemetryDhalTelemetry = class {
     }
     void this.loadApi().then((api) => {
       if (!api) return;
-      const tracer = api.trace.getTracer("dhal", "0.8.0");
-      const meter = api.metrics.getMeter("dhal", "0.8.0");
+      const tracer = api.trace.getTracer("dhal", DHAL_PACKAGE_VERSION);
+      const meter = api.metrics.getMeter("dhal", DHAL_PACKAGE_VERSION);
       const attributes = toAttributes(event, this.options.serviceName);
       const span = tracer.startSpan("dhal.inspect", { attributes });
       span.setStatus({
@@ -1963,7 +2085,7 @@ var WebhookDhalTelemetry = class {
     const body = JSON.stringify(payload);
     const headers = {
       "content-type": "application/json",
-      "user-agent": "dhal-webhook/0.8.0"
+      "user-agent": `dhal-webhook/${DHAL_PACKAGE_VERSION}`
     };
     addSignatureHeaders(headers, body, event.eventId, this.config.signing);
     try {
@@ -2306,8 +2428,8 @@ function writeLog(logger, config, event) {
 function getDhalConfigJsonSchema() {
   return {
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    $id: "https://dhal.dev/schemas/v0.13/dhal.schema.json",
-    title: "Dhal configuration (schemaVersion 1, v0.13 beta)",
+    $id: "https://dhal.dev/schemas/v1/dhal.schema.json",
+    title: "Dhal configuration (schemaVersion 1, v1 release candidate)",
     type: "object",
     additionalProperties: false,
     properties: {
@@ -3911,116 +4033,6 @@ function isPresetName(name) {
   return Object.prototype.hasOwnProperty.call(DHAL_PRESETS, name);
 }
 
-// src/compatibility.ts
-var DHAL_PACKAGE_VERSION = "0.13.0-beta.1";
-var DHAL_RELEASE_CHANNEL = "beta";
-var DHAL_COMPATIBILITY_MATRIX = {
-  packageName: "@rokadhq/dhal",
-  version: DHAL_PACKAGE_VERSION,
-  releaseChannel: DHAL_RELEASE_CHANNEL,
-  node: [
-    {
-      name: "Node.js",
-      range: ">=18.18.0",
-      status: "supported",
-      notes: "Minimum supported runtime for published package execution."
-    },
-    {
-      name: "Node.js 20 LTS",
-      range: ">=20.0.0",
-      status: "tested",
-      notes: "Recommended production baseline for long-term support deployments."
-    },
-    {
-      name: "Node.js 22/24",
-      range: ">=22.0.0",
-      status: "tested",
-      notes: "Used by Dhal release workflows and publish verification."
-    }
-  ],
-  frameworks: [
-    {
-      name: "Express",
-      range: ">=4.18.0 || >=5.0.0",
-      status: "supported",
-      notes: "Use @rokadhq/dhal/express."
-    },
-    {
-      name: "Fastify",
-      range: ">=4.0.0 || >=5.0.0",
-      status: "supported",
-      notes: "Use @rokadhq/dhal/fastify."
-    },
-    {
-      name: "node:http",
-      range: "Node built-in",
-      status: "supported",
-      notes: "Use @rokadhq/dhal/node-http."
-    },
-    {
-      name: "NestJS",
-      range: "Express/Fastify adapters",
-      status: "optional",
-      notes: "Integrate through the underlying Express or Fastify adapter."
-    }
-  ],
-  integrations: [
-    {
-      name: "Redis / Valkey",
-      range: "ioredis >=5.0.0 compatible client",
-      status: "supported",
-      notes: "Use distributed stores for multi-instance production deployments."
-    },
-    {
-      name: "OpenTelemetry API",
-      range: ">=1.8.0",
-      status: "optional",
-      notes: "Use @rokadhq/dhal/telemetry/otel when OTel is already configured in the app."
-    },
-    {
-      name: "AbuseIPDB-style reputation",
-      range: "API key configured by environment variable",
-      status: "optional",
-      notes: "Use cache-first behavior and prefer async mode on public APIs."
-    },
-    {
-      name: "AI SDK autosetup",
-      range: "ai >=5.0.0 plus optional provider packages",
-      status: "experimental",
-      notes: "Generates proposed config; review before enforcing."
-    },
-    {
-      name: "GitHub Actions publishing",
-      range: "npm Trusted Publishing or token fallback",
-      status: "supported",
-      notes: "npmjs publishing is primary; GitHub Packages publishing is optional."
-    }
-  ],
-  packageManagers: [
-    {
-      name: "npm",
-      range: ">=10",
-      status: "tested",
-      notes: "Primary supported package manager and release workflow."
-    },
-    {
-      name: "pnpm / yarn / bun",
-      range: "modern versions",
-      status: "optional",
-      notes: "Expected to work for package consumption; release verification currently uses npm."
-    }
-  ],
-  stability: {
-    publicApi: "beta-stabilizing",
-    configSchema: "beta-stabilizing",
-    cli: "beta-stabilizing",
-    note: "Dhal v0.13 introduces schemaVersion 1 and migration checks as the v1-bound configuration contract. Avoid breaking public imports, config keys, and CLI names unless a migration path is provided."
-  }
-};
-function getDhalCompatibilityMatrix() {
-  return DHAL_COMPATIBILITY_MATRIX;
-}
-
 // src/readiness.ts
 var import_node_fs6 = require("fs");
 var import_node_path6 = require("path");
@@ -4263,6 +4275,187 @@ function runDhalSupportReport(options = {}) {
   };
 }
 
+// src/release-check.ts
+var import_node_fs7 = require("fs");
+var import_node_path7 = require("path");
+
+// src/v1-contract.ts
+var DHAL_V1_CONTRACT_VERSION = "1";
+var DHAL_V1_PUBLIC_EXPORTS = Object.freeze([
+  { path: ".", stability: "stable", purpose: "Core engine, configuration, policies, stores, telemetry, diagnostics, and public types." },
+  { path: "./express", stability: "stable", purpose: "Express middleware adapter." },
+  { path: "./fastify", stability: "stable", purpose: "Fastify plugin adapter." },
+  { path: "./node-http", stability: "stable", purpose: "Raw node:http adapter." },
+  { path: "./stores/redis", stability: "stable", purpose: "Distributed Redis/Valkey rate-limit store." },
+  { path: "./stores/memory-signal", stability: "stable", purpose: "In-memory security signal store." },
+  { path: "./stores/redis-signal", stability: "stable", purpose: "Distributed Redis/Valkey security signal store." },
+  { path: "./reputation/abuseipdb", stability: "stable", purpose: "AbuseIPDB-compatible reputation provider." },
+  { path: "./telemetry/otel", stability: "stable", purpose: "OpenTelemetry integration." },
+  { path: "./telemetry/webhook", stability: "stable", purpose: "Signed webhook telemetry integration." },
+  { path: "./config-schema", stability: "stable", purpose: "Programmatic JSON Schema export." },
+  { path: "./doctor", stability: "stable", purpose: "Operational diagnostics." },
+  { path: "./rules/catalog", stability: "stable", purpose: "Rule catalog inspection." },
+  { path: "./presets", stability: "stable", purpose: "Reviewable production configuration presets." },
+  { path: "./report", stability: "stable", purpose: "Redacted support report generation." },
+  { path: "./compatibility", stability: "stable", purpose: "Runtime and integration compatibility matrix." },
+  { path: "./readiness", stability: "stable", purpose: "Production-readiness scoring." },
+  { path: "./migrations", stability: "stable", purpose: "Versioned configuration migration utilities." },
+  { path: "./stability", stability: "stable", purpose: "Public API stability inventory." },
+  { path: "./v1-contract", stability: "stable", purpose: "Machine-readable Dhal v1 contract." },
+  { path: "./autosetup", stability: "experimental", purpose: "AI-assisted configuration proposal generation." },
+  { path: "./package.json", stability: "stable", purpose: "Package metadata." },
+  { path: "./dhal.schema.json", stability: "stable", purpose: "Published configuration schema." }
+]);
+var DHAL_V1_CLI_COMMANDS = Object.freeze([
+  "init",
+  "test-config",
+  "explain-config",
+  "schema",
+  "migrate",
+  "ci",
+  "doctor",
+  "report",
+  "rules",
+  "readiness",
+  "compat",
+  "stability",
+  "release-check",
+  "presets",
+  "autosetup",
+  "replay",
+  "simulate"
+]);
+function getDhalV1Contract() {
+  return {
+    contractVersion: DHAL_V1_CONTRACT_VERSION,
+    configSchemaVersion: DHAL_CONFIG_SCHEMA_VERSION,
+    publicExports: DHAL_V1_PUBLIC_EXPORTS,
+    cliCommands: DHAL_V1_CLI_COMMANDS,
+    compatibilityPolicy: {
+      stableExports: "No breaking changes within v1.x without a deprecation and migration path.",
+      experimentalExports: "May evolve within v1.x and must remain explicitly labelled experimental.",
+      config: "schemaVersion 1 remains backward compatible throughout v1.x.",
+      cli: "Stable command names remain available throughout v1.x."
+    }
+  };
+}
+function validateDhalV1Contract() {
+  const issues = [];
+  const exportPaths = DHAL_V1_PUBLIC_EXPORTS.map((entry) => entry.path);
+  const commandNames = [...DHAL_V1_CLI_COMMANDS];
+  if (DHAL_CONFIG_SCHEMA_VERSION !== DHAL_V1_CONTRACT_VERSION) {
+    issues.push(`Config schema version ${DHAL_CONFIG_SCHEMA_VERSION} does not match v1 contract ${DHAL_V1_CONTRACT_VERSION}.`);
+  }
+  for (const duplicate of findDuplicates(exportPaths)) {
+    issues.push(`Duplicate v1 public export: ${duplicate}`);
+  }
+  for (const duplicate of findDuplicates(commandNames)) {
+    issues.push(`Duplicate v1 CLI command: ${duplicate}`);
+  }
+  if (!DHAL_V1_PUBLIC_EXPORTS.some((entry) => entry.path === "." && entry.stability === "stable")) {
+    issues.push("The root package export must be stable in v1.");
+  }
+  return { ok: issues.length === 0, issues };
+}
+function findDuplicates(values) {
+  const seen = /* @__PURE__ */ new Set();
+  const duplicates = /* @__PURE__ */ new Set();
+  for (const value of values) {
+    if (seen.has(value)) duplicates.add(value);
+    seen.add(value);
+  }
+  return [...duplicates];
+}
+
+// src/release-check.ts
+function runDhalReleaseCheck(options = {}) {
+  const rootDir = (0, import_node_path7.resolve)(options.rootDir ?? process.cwd());
+  const target = options.target ?? "development";
+  const requireBuild = options.requireBuild ?? target !== "development";
+  const releaseChannel = String(DHAL_RELEASE_CHANNEL);
+  const findings = [];
+  const packageJson = readJson((0, import_node_path7.resolve)(rootDir, "package.json"));
+  const packageLock = readJson((0, import_node_path7.resolve)(rootDir, "package-lock.json"));
+  const packageVersion = stringValue(packageJson.version);
+  add(findings, packageJson.name === "@rokadhq/dhal", "package.name", "Package name is @rokadhq/dhal.", `Unexpected package name: ${String(packageJson.name)}`);
+  add(findings, packageVersion === DHAL_PACKAGE_VERSION, "version.compatibility", "Package and compatibility versions match.", `package.json is ${packageVersion}; compatibility metadata is ${DHAL_PACKAGE_VERSION}.`);
+  const lockRoot = isRecord(packageLock.packages) ? packageLock.packages[""] : void 0;
+  const lockVersion = isRecord(lockRoot) ? stringValue(lockRoot.version) : stringValue(packageLock.version);
+  add(findings, lockVersion === packageVersion, "version.lockfile", "Package lock version matches package.json.", `package-lock.json is ${lockVersion}; package.json is ${packageVersion}.`);
+  const contract = validateDhalV1Contract();
+  add(findings, contract.ok, "contract.valid", "The machine-readable v1 contract is valid.", contract.issues.join(" ") || "The v1 contract is invalid.");
+  const exportMap = isRecord(packageJson.exports) ? packageJson.exports : {};
+  const declaredExports = new Set(Object.keys(exportMap));
+  const contractExports = new Set(DHAL_V1_PUBLIC_EXPORTS.map((entry) => entry.path));
+  const missingFromPackage = [...contractExports].filter((entry) => !declaredExports.has(entry));
+  const unclassified = [...declaredExports].filter((entry) => !contractExports.has(entry));
+  add(findings, missingFromPackage.length === 0, "exports.contract_missing", "Every v1 contract export exists in package.json.", `Missing package exports: ${missingFromPackage.join(", ")}`);
+  add(findings, unclassified.length === 0, "exports.unclassified", "Every package export is classified by the v1 contract.", `Unclassified package exports: ${unclassified.join(", ")}`);
+  const schema = getDhalConfigJsonSchema();
+  const schemaProperties = isRecord(schema.properties) ? schema.properties : {};
+  const schemaVersion = isRecord(schemaProperties.schemaVersion) ? schemaProperties.schemaVersion.const : void 0;
+  add(findings, schemaVersion === "1", "schema.version", "Published configuration schema is schemaVersion 1.", `Unexpected schemaVersion contract: ${String(schemaVersion)}`);
+  const directTargets = [
+    packageJson.main,
+    packageJson.module,
+    packageJson.types,
+    ...Object.values(isRecord(packageJson.bin) ? packageJson.bin : {})
+  ].filter((entry) => typeof entry === "string");
+  const buildTargets = [...collectTargets(packageJson.exports), ...directTargets].filter((entry) => entry.startsWith("./"));
+  const missingBuildTargets = [...new Set(buildTargets)].filter((entry) => !(0, import_node_fs7.existsSync)((0, import_node_path7.resolve)(rootDir, entry)));
+  if (missingBuildTargets.length === 0) {
+    findings.push({ code: "build.targets", level: "pass", message: "Every published build target exists." });
+  } else {
+    findings.push({
+      code: "build.targets",
+      level: requireBuild ? "fail" : "warning",
+      message: `Missing generated build targets: ${missingBuildTargets.join(", ")}`
+    });
+  }
+  validateTarget(findings, target, packageVersion, releaseChannel);
+  return {
+    ok: findings.every((finding) => finding.level !== "fail"),
+    target,
+    packageVersion,
+    releaseChannel,
+    findings
+  };
+}
+function validateTarget(findings, target, version, releaseChannel) {
+  if (target === "development") {
+    findings.push({ code: "release.target", level: "pass", message: "Development release checks selected." });
+    return;
+  }
+  if (target === "rc") {
+    add(findings, /^1\.0\.0-rc\.\d+$/.test(version), "release.version", "Version is a Dhal v1 release candidate.", `RC target requires 1.0.0-rc.N; found ${version}.`);
+    add(findings, releaseChannel === "rc", "release.channel", "Release channel is rc.", `RC target requires release channel rc; found ${releaseChannel}.`);
+    return;
+  }
+  add(findings, /^1\.\d+\.\d+$/.test(version), "release.version", "Version is a stable v1 release.", `Stable target requires 1.x.y without a prerelease suffix; found ${version}.`);
+  add(findings, releaseChannel === "latest", "release.channel", "Release channel is latest.", `Stable target requires release channel latest; found ${releaseChannel}.`);
+}
+function add(findings, condition, code, pass, fail) {
+  findings.push({ code, level: condition ? "pass" : "fail", message: condition ? pass : fail });
+}
+function collectTargets(value) {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(collectTargets);
+  if (isRecord(value)) return Object.values(value).flatMap(collectTargets);
+  return [];
+}
+function readJson(path) {
+  if (!(0, import_node_fs7.existsSync)(path)) throw new Error(`Required release file is missing: ${path}`);
+  const value = JSON.parse((0, import_node_fs7.readFileSync)(path, "utf8"));
+  if (!isRecord(value)) throw new Error(`Expected a JSON object in ${path}`);
+  return value;
+}
+function stringValue(value) {
+  return typeof value === "string" ? value : "unknown";
+}
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 // src/migrations.ts
 function getDhalMigrationPlan() {
   return {
@@ -4270,7 +4463,7 @@ function getDhalMigrationPlan() {
     supportedInputVersions: [null, "1"],
     notes: [
       "Configs without schemaVersion are treated as pre-v0.13 configs and migrated to schemaVersion 1.",
-      "Unknown future schema versions are not downgraded automatically.",
+      "Unknown schema versions are rejected.",
       "Run `npx dhal migrate dhal.json --write` before adopting v1-bound configs."
     ]
   };
@@ -4288,11 +4481,7 @@ function migrateDhalConfig(input) {
     });
     changed = true;
   } else if (rawVersion !== DHAL_CONFIG_SCHEMA_VERSION) {
-    notices.push({
-      level: "warning",
-      code: "schemaVersion.unknown",
-      message: `Input schemaVersion '${rawVersion}' is not explicitly supported by this Dhal release. Attempting current-schema normalization only.`
-    });
+    throw new Error(`Unsupported schemaVersion '${rawVersion}'. Expected '${DHAL_CONFIG_SCHEMA_VERSION}'.`);
   }
   const normalized = {
     ...source,
@@ -4314,15 +4503,16 @@ function isObject(value) {
 
 // src/stability.ts
 var DHAL_API_SURFACES = [
-  { name: "Core engine", importPath: "@rokadhq/dhal", level: "stable-for-v1", notes: "createDhal, loadDhalConfig, config schema export, and core types are intended to remain stable for v1." },
-  { name: "Express adapter", importPath: "@rokadhq/dhal/express", level: "stable-for-v1", notes: "The Express middleware API is v1-bound." },
-  { name: "Fastify adapter", importPath: "@rokadhq/dhal/fastify", level: "stable-for-v1", notes: "The Fastify plugin API is v1-bound." },
-  { name: "Node HTTP adapter", importPath: "@rokadhq/dhal/node-http", level: "stable-for-v1", notes: "The raw node:http handler API is v1-bound." },
-  { name: "dhal.json schemaVersion 1", importPath: "./dhal.schema.json", level: "stable-for-v1", notes: "The schemaVersion 1 configuration model is the v1 contract target." },
-  { name: "CLI diagnostics", level: "stable-for-v1", notes: "doctor, readiness, compat, report, rules, schema, migrate, presets, replay, simulate, and ci are v1-bound command names." },
-  { name: "Redis / Valkey stores", importPath: "@rokadhq/dhal/stores/redis", level: "beta-stabilizing", notes: "Store contracts are expected to remain stable but should get real multi-instance validation before v1." },
-  { name: "Telemetry adapters", importPath: "@rokadhq/dhal/telemetry/otel", level: "beta-stabilizing", notes: "Public integration path is v1-bound; emitted attributes may still be refined." },
-  { name: "AI autosetup", importPath: "@rokadhq/dhal/autosetup", level: "experimental", notes: "Autosetup generates reviewable config proposals and may evolve before v1." },
+  { name: "Core engine", importPath: "@rokadhq/dhal", level: "stable", notes: "createDhal, loadDhalConfig, schema exports, release checks, and core public types are frozen for v1." },
+  { name: "Express adapter", importPath: "@rokadhq/dhal/express", level: "stable", notes: "Express 4 and 5 integration behavior is part of the v1 contract." },
+  { name: "Fastify adapter", importPath: "@rokadhq/dhal/fastify", level: "stable", notes: "Fastify 4 and 5 registration and enforcement behavior is part of the v1 contract." },
+  { name: "Node HTTP adapter", importPath: "@rokadhq/dhal/node-http", level: "stable", notes: "The raw node:http handler API is part of the v1 contract." },
+  { name: "dhal.json schemaVersion 1", importPath: "./dhal.schema.json", level: "stable", notes: "schemaVersion 1 remains backward compatible throughout v1.x." },
+  { name: "CLI contract", level: "stable", notes: "The command inventory declared by @rokadhq/dhal/v1-contract remains available throughout v1.x." },
+  { name: "Redis / Valkey stores", importPath: "@rokadhq/dhal/stores/redis", level: "stable", notes: "Redis 7 and Valkey 8 multi-instance behavior is covered by the v1 release gate." },
+  { name: "Webhook telemetry", importPath: "@rokadhq/dhal/telemetry/webhook", level: "stable", notes: "Signed webhook payload and metadata behavior is part of the v1 contract." },
+  { name: "OpenTelemetry adapter", importPath: "@rokadhq/dhal/telemetry/otel", level: "release-candidate", notes: "The adapter API is frozen; emitted attribute additions may still occur before stable v1." },
+  { name: "AI autosetup", importPath: "@rokadhq/dhal/autosetup", level: "experimental", notes: "Autosetup produces reviewable proposals and remains outside the stable v1 contract." },
   { name: "Internal rule scoring", level: "internal", notes: "Rule internals and scoring weights are not public API." }
 ];
 function getDhalApiStabilityReport() {
@@ -4344,6 +4534,9 @@ function getDhalApiStabilityReport() {
   DHAL_PRESETS,
   DHAL_RELEASE_CHANNEL,
   DHAL_RULE_CATALOG,
+  DHAL_V1_CLI_COMMANDS,
+  DHAL_V1_CONTRACT_VERSION,
+  DHAL_V1_PUBLIC_EXPORTS,
   DhalEventBus,
   IpReputationCache,
   MemoryRateLimitStore,
@@ -4366,6 +4559,7 @@ function getDhalApiStabilityReport() {
   getDhalMigrationPlan,
   getDhalPreset,
   getDhalRuleCatalog,
+  getDhalV1Contract,
   isCredentialRoute,
   listDhalPresets,
   loadDhalConfig,
@@ -4374,7 +4568,9 @@ function getDhalApiStabilityReport() {
   runDhalAutosetup,
   runDhalDoctor,
   runDhalReadiness,
+  runDhalReleaseCheck,
   runDhalSupportReport,
   severityAtLeast,
-  shouldEmitSecurityEvent
+  shouldEmitSecurityEvent,
+  validateDhalV1Contract
 });
