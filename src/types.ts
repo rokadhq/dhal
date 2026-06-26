@@ -1,3 +1,5 @@
+export type DhalConfigSchemaVersion = "1";
+
 export type DhalMode = "off" | "monitor" | "block" | "strict";
 
 export type DhalAction = "allow" | "block" | "log";
@@ -218,6 +220,7 @@ export type DhalObservabilityRedactionConfig = {
 };
 
 export type DhalConfig = {
+  schemaVersion: DhalConfigSchemaVersion;
   mode: DhalMode;
   trustProxy: boolean;
   runtime: DhalRuntimeConfig;
