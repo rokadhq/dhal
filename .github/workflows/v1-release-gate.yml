@@ -1,0 +1,84 @@
+name: Dhal v1 Release Gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-contract:
+    name: Package contract / Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run verify:v1
+
+  framework-matrix:
+    name: Express ${{ matrix.express }} / Fastify ${{ matrix.fastify }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        express: ["4", "5"]
+        fastify: ["4", "5"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install framework matrix
+        run: npm install --no-save --ignore-scripts express@${{ matrix.express }} fastify@${{ matrix.fastify }}
+      - run: npx vitest run tests/adapters.integration.test.ts
+
+  distributed-stores:
+    name: Distributed stores / ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Redis 7
+            image: redis:7-alpine
+          - name: Valkey 8
+            image: valkey/valkey:8-alpine
+    services:
+      datastore:
+        image: ${{ matrix.image }}
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run tests/redis.integration.test.ts
+        env:
+          DHAL_REDIS_URL: redis://127.0.0.1:6379
+
+  performance-budget:
+    name: Performance and memory budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run verify:performance
