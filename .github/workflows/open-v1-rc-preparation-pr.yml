@@ -1,39 +1,13 @@
-name: Open Verified Dhal v1 RC Preparation PR
+name: Archived Dhal v1 RC Preparation
 
 on:
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  prepare:
-    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'release/v1.0.0-rc.0'
+  archived:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: release/v1.0.0-rc.0
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: node scripts/promote-v1-rc.mjs
-      - run: node scripts/finalize-v1-rc-tests.mjs
-      - run: node scripts/finalize-v1-rc-compatibility.mjs
-      - run: npm install --package-lock-only --ignore-scripts
-      - run: npm run schema
-      - run: npm run verify:v1
-      - uses: peter-evans/create-pull-request@v7
-        with:
-          branch: automation/v1.0.0-rc.0-preparation
-          base: release/v1.0.0-rc.0
-          commit-message: "release: prepare v1.0.0-rc.0"
-          title: "release: prepare Dhal v1.0.0-rc.0"
-          body: "Automated commit containing the fully verified RC metadata, lockfile, schema, tests, and release documentation."
-          delete-branch: true
+      - run: echo "The v1.0.0-rc.0 preparation has been completed and this workflow is archived."
