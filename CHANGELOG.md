@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.13.0-beta.1 — V1 contract hardening
+
+### Added
+
+- Added `schemaVersion: "1"` as the v1-bound `dhal.json` contract.
+- Added configuration migration checks and `dhal migrate --check`.
+- Added public migration APIs through `@rokadhq/dhal/migrations`.
+- Added API stability reporting through `dhal stability`.
+- Added public stability APIs through `@rokadhq/dhal/stability`.
+- Added Express and node:http v1-contract examples.
+- Added `V1_CONTRACT.md`.
+
+### Changed
+
+- Updated diagnostics and support reports with schema-version metadata.
+- Updated the compatibility matrix for the v1-bound contract.
+- Regenerated package output and configuration schema.
+
 ## 0.12.0-beta.0 - V1-readiness beta
 
 - Moved Dhal into a beta-track release focused on v1 readiness.
