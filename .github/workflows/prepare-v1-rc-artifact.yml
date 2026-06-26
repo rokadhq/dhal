@@ -1,0 +1,41 @@
+name: Prepare Dhal v1 RC Artifact
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'release/v1.0.0-rc.0'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Promote metadata
+        run: node scripts/promote-v1-rc.mjs
+      - name: Synchronize lockfile
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Generate published schema
+        run: npm run schema
+      - name: Verify promoted RC tree
+        run: npm run verify:v1
+      - name: Stage RC artifact
+        shell: bash
+        run: |
+          mkdir -p .rc-artifact/src .rc-artifact/tests
+          cp package.json package-lock.json CHANGELOG.md V1_CONTRACT.md V1_RELEASE_PLAN.md dhal.schema.json .rc-artifact/
+          cp src/config-schema.ts .rc-artifact/src/
+          cp tests/engine.test.ts tests/release-check.test.ts .rc-artifact/tests/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dhal-v1.0.0-rc.0-preparation
+          path: .rc-artifact
+          if-no-files-found: error
