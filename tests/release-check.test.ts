@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DHAL_PACKAGE_VERSION } from "../src/compatibility.js";
 import { runDhalReleaseCheck } from "../src/release-check.js";
 
 describe("Dhal release check", () => {
@@ -15,7 +16,7 @@ describe("Dhal release check", () => {
     const result = runDhalReleaseCheck({ target: "stable", requireBuild: false });
 
     expect(result.ok).toBe(true);
-    expect(result.packageVersion).toBe("1.0.0");
+    expect(result.packageVersion).toBe(DHAL_PACKAGE_VERSION);
     expect(result.releaseChannel).toBe("latest");
     expect(result.findings.some((finding) => finding.code === "release.version" && finding.level === "pass")).toBe(true);
     expect(result.findings.some((finding) => finding.code === "release.channel" && finding.level === "pass")).toBe(true);
