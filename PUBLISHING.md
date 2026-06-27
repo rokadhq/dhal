@@ -4,7 +4,13 @@ Dhal is published primarily to npm through GitHub Actions and npm Trusted Publis
 
 ## Release prerequisites
 
-Before publishing any v1 build, install dependencies, run the complete v1 verification suite, and inspect the package dry run.
+Before publishing any v1 build:
+
+```bash
+npm ci
+npm run verify:v1
+npm pack --dry-run
+```
 
 For stable v1, the unified release check must report `target: "stable"`, the version currently declared in both package metadata files, and release channel `latest`.
 
@@ -31,11 +37,24 @@ Resolved tags:
 | other `0.x` | `next` |
 | stable `1.x+` | `latest` |
 
-For stable `1.x`, publishing produces the current package version under the `latest` dist-tag. For example, version `1.0.1` produces `@rokadhq/dhal@1.0.1` with `latest` pointing to that version.
+For stable `1.x`, publishing produces the current package version under the `latest` dist-tag. For example:
+
+```text
+@rokadhq/dhal@1.0.1
+npm dist-tag: latest
+```
 
 ## Manual local publishing
 
-Local publishing should be limited to recovery scenarios. It does not provide npm Trusted Publishing provenance. Follow the repository's verified local publishing script and do not request provenance from a normal local terminal because local shells do not provide the required OIDC metadata.
+Local publishing should be limited to recovery scenarios. It does not provide npm Trusted Publishing provenance.
+
+```bash
+npm ci
+npm run verify:v1
+npm run publish:local
+```
+
+The `publish:local` script intentionally disables provenance. Normal local shells do not provide the OIDC metadata required for trusted provenance.
 
 ## Stable v1 promotion
 
@@ -44,7 +63,7 @@ Every stable `1.x` release must:
 - preserve the declared v1 public contract;
 - use a matching stable semantic version in `package.json` and `package-lock.json`;
 - resolve the release channel to `latest`;
-- pass the stable release check and the complete v1 matrix;
+- pass `npm run release:check:stable` and the complete v1 matrix;
 - publish under the `latest` npm dist-tag;
 - generate release notes, assets, and status records from the resolved package version.
 
