@@ -1,5 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import {
+  applyDhalFrameworkPreset,
+  type DhalFrameworkPresetName
+} from "./framework-presets.js";
 import { applyDhalPreset } from "./presets.js";
 
 export type DhalFramework = "express" | "fastify" | "nestjs" | "koa" | "hono" | "node-http" | "unknown";
@@ -68,7 +72,9 @@ export function runDhalAdd(options: DhalAddOptions = {}): DhalAddResult {
   if (!packageInstalled) warnings.push("@rokadhq/dhal is not listed in package.json yet.");
 
   const preset = frameworkPreset(framework);
-  const config = applyDhalPreset({}, preset);
+  const config = preset
+    ? applyDhalFrameworkPreset({}, preset)
+    : applyDhalPreset({}, "starter");
   config.mode = "monitor";
   const configContent = `${JSON.stringify(config, null, 2)}\n`;
   const integrationContent = renderIntegration(framework, configRelativePath);
@@ -144,7 +150,7 @@ function readPackageJson(projectRoot: string): PackageJson | undefined {
   }
 }
 
-function frameworkPreset(framework: DhalFramework): string {
+function frameworkPreset(framework: DhalFramework): DhalFrameworkPresetName | undefined {
   switch (framework) {
     case "nestjs": return "nestjs-api";
     case "koa": return "koa-api";
@@ -152,7 +158,7 @@ function frameworkPreset(framework: DhalFramework): string {
     case "express": return "express-api";
     case "fastify": return "fastify-api";
     case "node-http": return "node-http-api";
-    default: return "starter";
+    default: return undefined;
   }
 }
 
