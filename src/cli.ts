@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { runDhalAdd, type DhalFramework } from "./add.js";
 import { defaultConfig, loadDhalConfig } from "./config.js";
@@ -15,6 +15,10 @@ import {
   isFrameworkPresetName,
   listDhalFrameworkPresets
 } from "./framework-presets.js";
+import {
+  generateDhalPolicyFromOpenApiFile,
+  inspectOpenApiFile
+} from "./openapi.js";
 import { getDhalRuleCatalog } from "./rules/catalog.js";
 import { applyDhalPreset, getDhalPreset, listDhalPresets, readConfigIfExists } from "./presets.js";
 import { runDhalSupportReport } from "./report.js";
@@ -23,7 +27,7 @@ import { runDhalReadiness } from "./readiness.js";
 import { getDhalMigrationPlan, migrateDhalConfig } from "./migrations.js";
 import { getDhalApiStabilityReport } from "./stability.js";
 import { runDhalReleaseCheck, type DhalReleaseTarget } from "./release-check.js";
-import type { DhalAutosetupProvider, DhalRequest } from "./types.js";
+import type { DhalAutosetupProvider, DhalRequest, PartialDeep, DhalConfig } from "./types.js";
 
 const argv = process.argv.slice(2);
 const command = argv.shift();
@@ -58,6 +62,7 @@ async function main(): Promise<void> {
           backup: !has("--no-backup")
         })
       : runDhalDoctor({ configPath, cwd: value("--root") ?? process.cwd() }));
+    case "openapi": return openapi(configPath, pos);
     case "report": return report(configPath);
     case "rules": return output({ rules: getDhalRuleCatalog(loadDhalConfig(configPath)) });
     case "compat": case "compatibility": return output(getDhalCompatibilityMatrix());
@@ -95,6 +100,42 @@ function migrate(inputPath: string, outputPath?: string): void {
     return output({ ok: result.ok, wrote: out, changed: result.changed, notices: result.notices });
   }
   output(result);
+}
+
+function openapi(configPath: string, pos: string[]): void {
+  const sub = pos[0] ?? "inspect";
+  const sourcePath = pos[1] ?? value("--input");
+  if (!sourcePath) throw new Error("Usage: dhal openapi inspect|generate <openapi.json|openapi.yaml>");
+
+  if (sub === "inspect") return finish(inspectOpenApiFile(sourcePath));
+  if (sub !== "generate") throw new Error(`Unknown OpenAPI command: ${sub}`);
+
+  const resolvedConfig = resolve(configPath);
+  const existingConfig = existsSync(resolvedConfig)
+    ? JSON.parse(readFileSync(resolvedConfig, "utf8")) as PartialDeep<DhalConfig>
+    : undefined;
+  const result = generateDhalPolicyFromOpenApiFile(sourcePath, {
+    ...(existingConfig ? { existingConfig } : {}),
+    defaultRateLimitMax: numberValue("--default-max")
+  });
+  const outputPath = value("--output") ?? (has("--write") ? configPath : undefined);
+
+  if (!outputPath) return finish(result);
+
+  const target = resolve(outputPath);
+  const writingExistingConfig = target === resolvedConfig && existsSync(target);
+  if (existsSync(target) && !writingExistingConfig && !has("--force")) {
+    throw new Error(`Refusing to overwrite existing output without --force: ${target}`);
+  }
+  if (writingExistingConfig && !has("--no-backup")) copyFileSync(target, `${target}.bak`);
+  writeFileSync(target, `${JSON.stringify(result.config, null, 2)}\n`);
+  output({
+    ok: result.ok,
+    wrote: target,
+    backup: writingExistingConfig && !has("--no-backup") ? `${target}.bak` : undefined,
+    changes: result.changes,
+    warnings: result.warnings
+  });
 }
 
 function report(configPath: string): void {
@@ -205,7 +246,7 @@ function positionalConfigPath(currentCommand: string | undefined, pos: string[])
 }
 
 function help(): void {
-  console.log(`Dhal CLI\n\nCommands: init, add, test-config, explain-config, schema, migrate, ci, doctor, report, rules, readiness, compat, stability, release-check, presets, autosetup, replay, simulate\n\nOnboarding: dhal add [project] [--framework express|fastify|nestjs|koa|hono|node-http] [--write] [--force]\nRepair: dhal doctor --fix [--dry-run] [--no-backup]\nRelease gate: dhal release-check --target development|rc|stable [--require-build]\n\nUse --json for machine-readable output.`);
+  console.log(`Dhal CLI\n\nCommands: init, add, test-config, explain-config, schema, migrate, ci, doctor, openapi, report, rules, readiness, compat, stability, release-check, presets, autosetup, replay, simulate\n\nOnboarding: dhal add [project] [--framework express|fastify|nestjs|koa|hono|node-http] [--write] [--force]\nRepair: dhal doctor --fix [--dry-run] [--no-backup]\nOpenAPI: dhal openapi inspect <spec> | dhal openapi generate <spec> [--config dhal.json] [--write|--output path]\nRelease gate: dhal release-check --target development|rc|stable [--require-build]\n\nUse --json for machine-readable output.`);
 }
 
 void main().catch((error) => {
