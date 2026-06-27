@@ -16,7 +16,7 @@ export type DhalV1ContractValidation = {
 export const DHAL_V1_CONTRACT_VERSION = "1" as const;
 
 export const DHAL_V1_PUBLIC_EXPORTS: readonly DhalV1PublicExport[] = Object.freeze([
-  { path: ".", stability: "stable", purpose: "Core engine, configuration, policies, stores, telemetry, diagnostics, and public types." },
+  { path: ".", stability: "stable", purpose: "Core engine, framework adapters, onboarding, configuration, policies, stores, telemetry, diagnostics, and public types." },
   { path: "./express", stability: "stable", purpose: "Express middleware adapter." },
   { path: "./fastify", stability: "stable", purpose: "Fastify plugin adapter." },
   { path: "./node-http", stability: "stable", purpose: "Raw node:http adapter." },
@@ -43,6 +43,7 @@ export const DHAL_V1_PUBLIC_EXPORTS: readonly DhalV1PublicExport[] = Object.free
 
 export const DHAL_V1_CLI_COMMANDS = Object.freeze([
   "init",
+  "add",
   "test-config",
   "explain-config",
   "schema",
