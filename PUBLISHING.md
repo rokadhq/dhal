@@ -12,7 +12,7 @@ npm run verify:v1
 npm pack --dry-run
 ```
 
-For stable v1, the unified release check must report `target: "stable"`, package version `1.0.0`, and release channel `latest`.
+For stable v1, the unified release check must report `target: "stable"`, the version currently declared in both package metadata files, and release channel `latest`.
 
 ## CI publishing with Trusted Publishing
 
@@ -37,10 +37,10 @@ Resolved tags:
 | other `0.x` | `next` |
 | stable `1.x+` | `latest` |
 
-For `1.0.0`, publishing produces:
+For stable `1.x`, publishing produces the current package version under the `latest` dist-tag. For example:
 
 ```text
-@rokadhq/dhal@1.0.0
+@rokadhq/dhal@1.0.1
 npm dist-tag: latest
 ```
 
@@ -51,19 +51,20 @@ Local publishing should be limited to recovery scenarios. It does not provide np
 ```bash
 npm ci
 npm run verify:v1
-npm publish --tag latest --access public --provenance=false
+npm run publish:local
 ```
 
-Do not pass `--provenance` from a normal local terminal. Local shells do not provide the OIDC metadata required for trusted provenance.
+The `publish:local` script intentionally disables provenance. Normal local shells do not provide the OIDC metadata required for trusted provenance.
 
 ## Stable v1 promotion
 
-Stable `1.0.0` must:
+Every stable `1.x` release must:
 
 - preserve the declared v1 public contract;
-- change the package version to `1.0.0`;
-- change the release channel to `latest`;
+- use a matching stable semantic version in `package.json` and `package-lock.json`;
+- resolve the release channel to `latest`;
 - pass `npm run release:check:stable` and the complete v1 matrix;
-- publish under the `latest` npm dist-tag.
+- publish under the `latest` npm dist-tag;
+- generate release notes, assets, and status records from the resolved package version.
 
 Do not move the `latest` tag to an RC build.

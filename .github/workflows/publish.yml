@@ -91,10 +91,13 @@ jobs:
           exit 1
 
       - name: Record verified npm publication
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         shell: bash
         run: |
           mkdir -p .release-status
-          cat > .release-status/v1.0.0-npm.json <<EOF
+          STATUS_FILE=".release-status/v${VERSION}-npm.json"
+          cat > "$STATUS_FILE" <<EOF
           {
             "package": "@rokadhq/dhal",
             "version": "${{ steps.confirm.outputs.published }}",
@@ -107,6 +110,6 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .release-status/v1.0.0-npm.json
-          git commit -m "release: record verified npm publication for v1.0.0" || exit 0
+          git add "$STATUS_FILE"
+          git commit -m "release: record verified npm publication for v${VERSION}" || exit 0
           git push origin HEAD:main

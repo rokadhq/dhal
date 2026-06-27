@@ -57,19 +57,37 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Prepare release notes
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         shell: bash
         run: |
-          awk '
-            /^## 1\.0\.0 — Stable v1$/ { capture=1; next }
-            /^## / && capture { exit }
-            capture { print }
-          ' CHANGELOG.md > release-notes.md
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+
+          const version = process.env.VERSION;
+          const lines = readFileSync("CHANGELOG.md", "utf8").split(/\r?\n/);
+          const header = `## ${version}`;
+          const start = lines.findIndex((line) => line === header || line.startsWith(`${header} `));
+
+          if (start !== -1) {
+            let end = lines.length;
+            for (let index = start + 1; index < lines.length; index += 1) {
+              if (lines[index].startsWith("## ")) {
+                end = index;
+                break;
+              }
+            }
+
+            const notes = lines.slice(start + 1, end).join("\n").trim();
+            if (notes) writeFileSync("release-notes.md", `${notes}\n`);
+          }
+          NODE
 
           if [ ! -s release-notes.md ]; then
-            cat > release-notes.md <<'EOF'
-          Dhal 1.0.0 is the first stable production release of the app-native WAF for Node.js.
+            cat > release-notes.md <<EOF
+          Dhal $VERSION is a stable release of the app-native WAF for Node.js.
 
-          This release includes the frozen v1 package, CLI, and schema contracts; production lifecycle controls; distributed dependency guards; company deployment guidance; support and security policies; and supply-chain verification artifacts.
+          See CHANGELOG.md for the complete list of changes included in this version.
           EOF
           fi
 
@@ -104,12 +122,15 @@ jobs:
           if-no-files-found: error
 
       - name: Record verified GitHub release
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         shell: bash
         run: |
           git checkout main
           git pull --rebase origin main
           mkdir -p .release-status
-          cat > .release-status/v1.0.0-github.json <<EOF
+          STATUS_FILE=".release-status/v${VERSION}-github.json"
+          cat > "$STATUS_FILE" <<EOF
           {
             "repository": "rokadhq/dhal",
             "tag": "${{ steps.release.outputs.tag }}",
@@ -129,6 +150,6 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .release-status/v1.0.0-github.json
-          git commit -m "release: record verified GitHub release for v1.0.0" || exit 0
+          git add "$STATUS_FILE"
+          git commit -m "release: record verified GitHub release for v${VERSION}" || exit 0
           git push origin HEAD:main

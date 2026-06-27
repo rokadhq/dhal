@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DHAL_PACKAGE_VERSION } from "../src/compatibility.js";
 import { createDhal } from "../src/engine.js";
 import { MemorySignalStore } from "../src/stores/memory-signal-store.js";
 import { RedisSignalStore, type RedisSignalLikeClient } from "../src/stores/redis-signal-store.js";
@@ -489,7 +490,7 @@ describe("Dhal stable v1 contract", () => {
     const matrix = getDhalCompatibilityMatrix();
 
     expect(matrix.packageName).toBe("@rokadhq/dhal");
-    expect(matrix.version).toBe("1.0.0");
+    expect(matrix.version).toBe(DHAL_PACKAGE_VERSION);
     expect(matrix.releaseChannel).toBe("latest");
     expect(matrix.frameworks.some((entry) => entry.name === "Express" && entry.status === "supported")).toBe(true);
   });
@@ -522,7 +523,7 @@ describe("Dhal stable v1 contract", () => {
     const { getDhalApiStabilityReport } = await import("../src/stability.js");
     const report = getDhalApiStabilityReport();
 
-    expect(report.version).toBe("1.0.0");
+    expect(report.version).toBe(DHAL_PACKAGE_VERSION);
     expect(report.surfaces.some((surface) => surface.name === "Express adapter" && surface.level === "stable")).toBe(true);
     expect(report.surfaces.some((surface) => surface.name === "AI autosetup" && surface.level === "experimental")).toBe(true);
   });
@@ -531,7 +532,7 @@ describe("Dhal stable v1 contract", () => {
     const { runDhalSupportReport } = await import("../src/report.js");
     const report = runDhalSupportReport({ configPath: "./missing-dhal-report-v012-config.json", env: {} });
 
-    expect(report.version).toBe("1.0.0");
+    expect(report.version).toBe(DHAL_PACKAGE_VERSION);
     expect(report.releaseChannel).toBe("latest");
     expect(report.readiness.packageName).toBe("@rokadhq/dhal");
   });
