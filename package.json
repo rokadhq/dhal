@@ -1,6 +1,6 @@
 {
   "name": "@rokadhq/dhal",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Stable app-native WAF for Node.js with route-aware protection, distributed controls, runtime safety, production diagnostics, and a frozen v1 contract.",
   "type": "module",
   "license": "MIT",
