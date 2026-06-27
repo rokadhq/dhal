@@ -74,9 +74,9 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
     },
     {
       name: "NestJS",
-      range: "Express/Fastify adapters",
-      status: "optional",
-      notes: "Integrate through the underlying Express or Fastify adapter."
+      range: "NestJS HTTP applications using Express or Fastify",
+      status: "supported",
+      notes: "Use installDhalNest() before app.listen(); platform detection selects the existing Express or Fastify adapter."
     }
   ],
   integrations: [
@@ -135,7 +135,7 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
     publicApi: "stable",
     configSchema: "stable",
     cli: "stable",
-    note: "Dhal 1.0.0 is the stable v1 contract. Stable exports, CLI commands, and schemaVersion 1 remain backward compatible throughout v1.x."
+    note: "The Dhal v1 contract is stable. Stable exports, CLI commands, and schemaVersion 1 remain backward compatible throughout v1.x."
   }
 };
 
