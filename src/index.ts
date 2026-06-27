@@ -35,6 +35,21 @@ export {
   type DhalNestInstallOptions,
   type DhalNestPlatform
 } from "./adapters/nest.js";
+export {
+  dhalKoa,
+  dhalKoaFromEngine,
+  type DhalKoaContext,
+  type DhalKoaMiddleware,
+  type DhalKoaNext
+} from "./adapters/koa.js";
+export {
+  dhalHono,
+  dhalHonoFromEngine,
+  type DhalHonoContext,
+  type DhalHonoMiddleware,
+  type DhalHonoNext,
+  type DhalHonoRequest
+} from "./adapters/hono.js";
 export type {
   DhalConfigSchemaVersion,
   DhalAction,
