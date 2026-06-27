@@ -25,6 +25,16 @@ export { DHAL_RULE_CATALOG, findDhalRule, getDhalRuleCatalog } from "./rules/cat
 export { DHAL_PRESETS, applyDhalPreset, getDhalPreset, listDhalPresets } from "./presets.js";
 export { applyPolicyToDecision, resolveSeverity, shouldEmitSecurityEvent, severityAtLeast } from "./policy.js";
 export { buildCredentialKey, isCredentialRoute } from "./rules/credential-stuffing-rule.js";
+export {
+  installDhalNest,
+  installDhalNestFromEngine,
+  type DhalNestApplication,
+  type DhalNestHttpAdapter,
+  type DhalNestInstallation,
+  type DhalNestInstallFromEngineOptions,
+  type DhalNestInstallOptions,
+  type DhalNestPlatform
+} from "./adapters/nest.js";
 export type {
   DhalConfigSchemaVersion,
   DhalAction,
