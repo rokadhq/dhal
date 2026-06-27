@@ -31,7 +31,7 @@ describe("NestJS bootstrap adapter", () => {
       }),
       use: (...args: unknown[]) => {
         const use = expressApplication.use as unknown as (...middleware: unknown[]) => unknown;
-        return use(...args);
+        return use.call(expressApplication, ...args);
       }
     };
 
