@@ -20,7 +20,33 @@ export {
 } from "./telemetry/lifecycle.js";
 export { evaluateDhalCiPolicy } from "./ci.js";
 export { runDhalAutosetup } from "./autosetup/index.js";
+export {
+  detectFramework,
+  detectPackageManager,
+  runDhalAdd,
+  type DhalAddFilePlan,
+  type DhalAddOptions,
+  type DhalAddResult,
+  type DhalFramework,
+  type DhalPackageManager
+} from "./add.js";
 export { runDhalDoctor } from "./doctor.js";
+export {
+  runDhalDoctorFix,
+  type DhalDoctorFixAction,
+  type DhalDoctorFixOptions,
+  type DhalDoctorFixResult
+} from "./doctor-fix.js";
+export {
+  DHAL_FRAMEWORK_PRESETS,
+  applyDhalFrameworkPreset,
+  getDhalFrameworkPreset,
+  isFrameworkPresetName,
+  listDhalFrameworkPresets,
+  type DhalFrameworkPreset,
+  type DhalFrameworkPresetName,
+  type DhalFrameworkPresetSummary
+} from "./framework-presets.js";
 export { DHAL_RULE_CATALOG, findDhalRule, getDhalRuleCatalog } from "./rules/catalog.js";
 export { DHAL_PRESETS, applyDhalPreset, getDhalPreset, listDhalPresets } from "./presets.js";
 export { applyPolicyToDecision, resolveSeverity, shouldEmitSecurityEvent, severityAtLeast } from "./policy.js";
