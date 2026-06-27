@@ -43,7 +43,7 @@ async function verifyKoa() {
     assert.equal(response.headers.get("x-dhal-action"), "block");
     assert.deepEqual(await response.json(), {
       error: "Request blocked by Dhal",
-      reason: "Honeypot path detected",
+      reason: "Honeypot canary was triggered",
       ruleId: "honeypot.triggered"
     });
   } finally {
@@ -66,7 +66,7 @@ async function verifyHono() {
     assert.equal(response.headers.get("x-dhal-action"), "block");
     assert.deepEqual(await response.json(), {
       error: "Request blocked by Dhal",
-      reason: "Honeypot path detected",
+      reason: "Honeypot canary was triggered",
       ruleId: "honeypot.triggered"
     });
   } finally {
