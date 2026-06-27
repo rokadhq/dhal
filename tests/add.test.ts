@@ -48,7 +48,7 @@ describe("dhal add", () => {
     expect(result.wrote).toHaveLength(2);
     expect(config.mode).toBe("monitor");
     expect(integration).toContain("installDhalNest");
-    expect(integration).toContain("before app.listen").not;
+    expect(integration).toContain("configPath: \"dhal.json\"");
   });
 
   it("does not overwrite existing files unless force is provided", () => {
