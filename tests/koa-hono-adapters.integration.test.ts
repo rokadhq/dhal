@@ -108,7 +108,7 @@ describe("Hono adapter", () => {
     let downstreamCalled = false;
     const context: DhalHonoContext = {
       req: { raw, path: "/health", routePath: "/health" },
-      res: new Response("ok", { status: 204 })
+      res: new Response(null, { status: 204 })
     };
 
     try {
