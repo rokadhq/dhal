@@ -34,7 +34,7 @@ const output = (data: unknown) => console.log(typeof data === "string" ? data : 
 
 async function main(): Promise<void> {
   const pos = positional();
-  const configPath = value("--config") ?? pos[0] ?? "dhal.json";
+  const configPath = value("--config") ?? positionalConfigPath(command, pos) ?? "dhal.json";
   switch (command) {
     case "init": return init(pos[0] ?? "dhal.json");
     case "add": return finish(runDhalAdd({
@@ -184,6 +184,24 @@ function summary(config: ReturnType<typeof loadDhalConfig>) {
 function numberValue(flag: string): number | undefined {
   const raw = value(flag);
   return raw === undefined ? undefined : Number(raw);
+}
+
+function positionalConfigPath(currentCommand: string | undefined, pos: string[]): string | undefined {
+  switch (currentCommand) {
+    case "test-config":
+    case "explain-config":
+    case "ci":
+    case "doctor":
+    case "report":
+    case "rules":
+    case "readiness":
+    case "v1-readiness":
+    case "simulate":
+    case "replay":
+      return pos[0];
+    default:
+      return undefined;
+  }
 }
 
 function help(): void {
