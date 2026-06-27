@@ -77,6 +77,18 @@ export const DHAL_COMPATIBILITY_MATRIX: DhalCompatibilityMatrix = {
       range: "NestJS HTTP applications using Express or Fastify",
       status: "supported",
       notes: "Use installDhalNest() before app.listen(); platform detection selects the existing Express or Fastify adapter."
+    },
+    {
+      name: "Koa",
+      range: "Koa-compatible middleware on Node.js 20+",
+      status: "supported",
+      notes: "Use dhalKoa() or dhalKoaFromEngine() before application routes."
+    },
+    {
+      name: "Hono",
+      range: "Hono-compatible middleware on the Node.js runtime",
+      status: "supported",
+      notes: "Use dhalHono() or dhalHonoFromEngine(); the adapter consumes standard Web Request and Response objects."
     }
   ],
   integrations: [
