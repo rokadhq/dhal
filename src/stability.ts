@@ -22,6 +22,8 @@ export const DHAL_API_SURFACES: DhalApiSurface[] = [
   { name: "Fastify adapter", importPath: "@rokadhq/dhal/fastify", level: "stable", notes: "Fastify 4 and 5 registration and enforcement behavior is part of the v1 contract." },
   { name: "Node HTTP adapter", importPath: "@rokadhq/dhal/node-http", level: "stable", notes: "The raw node:http handler API is part of the v1 contract." },
   { name: "NestJS bootstrap adapter", importPath: "@rokadhq/dhal", level: "stable", notes: "installDhalNest and installDhalNestFromEngine support NestJS HTTP applications using Express or Fastify." },
+  { name: "Koa adapter", importPath: "@rokadhq/dhal", level: "stable", notes: "dhalKoa and dhalKoaFromEngine provide Koa-compatible request inspection and response-outcome recording." },
+  { name: "Hono adapter", importPath: "@rokadhq/dhal", level: "stable", notes: "dhalHono and dhalHonoFromEngine provide Web Request/Response based middleware for Hono on Node.js." },
   { name: "dhal.json schemaVersion 1", importPath: "./dhal.schema.json", level: "stable", notes: "schemaVersion 1 remains backward compatible throughout v1.x." },
   { name: "CLI contract", level: "stable", notes: "The command inventory declared by @rokadhq/dhal/v1-contract remains available throughout v1.x." },
   { name: "Redis / Valkey stores", importPath: "@rokadhq/dhal/stores/redis", level: "stable", notes: "Redis 7 and Valkey 8 multi-instance behavior is covered by the v1 release gate." },
