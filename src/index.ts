@@ -47,6 +47,21 @@ export {
   type DhalFrameworkPresetName,
   type DhalFrameworkPresetSummary
 } from "./framework-presets.js";
+export {
+  generateDhalPolicyFromOpenApi,
+  generateDhalPolicyFromOpenApiFile,
+  inspectOpenApi,
+  inspectOpenApiFile,
+  openApiPathToDhalRoute,
+  type DhalOpenApiFormat,
+  type DhalOpenApiInspection,
+  type DhalOpenApiOperation,
+  type DhalOpenApiPolicyChange,
+  type DhalOpenApiPolicyOptions,
+  type DhalOpenApiPolicyResult,
+  type DhalOpenApiSecurity,
+  type DhalOpenApiSignal
+} from "./openapi.js";
 export { DHAL_RULE_CATALOG, findDhalRule, getDhalRuleCatalog } from "./rules/catalog.js";
 export { DHAL_PRESETS, applyDhalPreset, getDhalPreset, listDhalPresets } from "./presets.js";
 export { applyPolicyToDecision, resolveSeverity, shouldEmitSecurityEvent, severityAtLeast } from "./policy.js";
