@@ -1,12 +1,20 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { runDhalAdd, type DhalFramework } from "./add.js";
 import { defaultConfig, loadDhalConfig } from "./config.js";
 import { evaluateDhalCiPolicy } from "./ci.js";
 import { getDhalConfigJsonSchema } from "./config-schema.js";
 import { createDhal } from "./engine.js";
 import { runDhalAutosetup } from "./autosetup/index.js";
 import { runDhalDoctor } from "./doctor.js";
+import { runDhalDoctorFix } from "./doctor-fix.js";
+import {
+  applyDhalFrameworkPreset,
+  getDhalFrameworkPreset,
+  isFrameworkPresetName,
+  listDhalFrameworkPresets
+} from "./framework-presets.js";
 import { getDhalRuleCatalog } from "./rules/catalog.js";
 import { applyDhalPreset, getDhalPreset, listDhalPresets, readConfigIfExists } from "./presets.js";
 import { runDhalSupportReport } from "./report.js";
@@ -26,15 +34,30 @@ const output = (data: unknown) => console.log(typeof data === "string" ? data : 
 
 async function main(): Promise<void> {
   const pos = positional();
-  const configPath = value("--config") ?? pos[0] ?? "dhal.json";
+  const configPath = value("--config") ?? positionalConfigPath(command, pos) ?? "dhal.json";
   switch (command) {
     case "init": return init(pos[0] ?? "dhal.json");
+    case "add": return finish(runDhalAdd({
+      projectRoot: pos[0] ?? value("--root") ?? ".",
+      framework: value("--framework") as DhalFramework | undefined,
+      configPath: value("--config") ?? "dhal.json",
+      integrationPath: value("--integration") ?? "dhal.integration.ts",
+      write: has("--write"),
+      force: has("--force")
+    }));
     case "test-config": return output({ ok: true, ...summary(loadDhalConfig(configPath)) });
     case "explain-config": return output(loadDhalConfig(configPath));
     case "schema": case "export-schema": return writeOrPrint(getDhalConfigJsonSchema(), pos[0]);
     case "migrate": return migrate(pos[0] ?? "dhal.json", pos[1]);
     case "ci": return finish(evaluateDhalCiPolicy(loadDhalConfig(configPath)));
-    case "doctor": return finish(runDhalDoctor({ configPath }));
+    case "doctor": return finish(has("--fix")
+      ? runDhalDoctorFix({
+          configPath,
+          cwd: value("--root") ?? process.cwd(),
+          write: !has("--dry-run"),
+          backup: !has("--no-backup")
+        })
+      : runDhalDoctor({ configPath, cwd: value("--root") ?? process.cwd() }));
     case "report": return report(configPath);
     case "rules": return output({ rules: getDhalRuleCatalog(loadDhalConfig(configPath)) });
     case "compat": case "compatibility": return output(getDhalCompatibilityMatrix());
@@ -86,12 +109,21 @@ function report(configPath: string): void {
 
 function presets(configPath: string, pos: string[]): void {
   const sub = pos[0] ?? "list";
-  if (sub === "list") return output({ presets: listDhalPresets() });
+  if (sub === "list") {
+    return output({ presets: [...listDhalPresets(), ...listDhalFrameworkPresets()] });
+  }
+
   const name = pos[1];
   if (!name) throw new Error("Preset name is required");
-  if (sub === "show") return output(getDhalPreset(name));
+  if (sub === "show") {
+    return output(isFrameworkPresetName(name) ? getDhalFrameworkPreset(name) : getDhalPreset(name));
+  }
   if (sub !== "apply") throw new Error(`Unknown preset command: ${sub}`);
-  const config = applyDhalPreset(readConfigIfExists(configPath), name);
+
+  const current = readConfigIfExists(configPath);
+  const config = isFrameworkPresetName(name)
+    ? applyDhalFrameworkPreset(current, name)
+    : applyDhalPreset(current, name);
   const out = value("--output") ?? (has("--write") ? configPath : undefined);
   if (out) {
     writeFileSync(resolve(out), `${JSON.stringify(config, null, 2)}\n`);
@@ -154,8 +186,26 @@ function numberValue(flag: string): number | undefined {
   return raw === undefined ? undefined : Number(raw);
 }
 
+function positionalConfigPath(currentCommand: string | undefined, pos: string[]): string | undefined {
+  switch (currentCommand) {
+    case "test-config":
+    case "explain-config":
+    case "ci":
+    case "doctor":
+    case "report":
+    case "rules":
+    case "readiness":
+    case "v1-readiness":
+    case "simulate":
+    case "replay":
+      return pos[0];
+    default:
+      return undefined;
+  }
+}
+
 function help(): void {
-  console.log(`Dhal CLI\n\nCommands: init, test-config, explain-config, schema, migrate, ci, doctor, report, rules, readiness, compat, stability, release-check, presets, autosetup, replay, simulate\n\nRelease gate: dhal release-check --target development|rc|stable [--require-build]\n\nUse --json for machine-readable output.`);
+  console.log(`Dhal CLI\n\nCommands: init, add, test-config, explain-config, schema, migrate, ci, doctor, report, rules, readiness, compat, stability, release-check, presets, autosetup, replay, simulate\n\nOnboarding: dhal add [project] [--framework express|fastify|nestjs|koa|hono|node-http] [--write] [--force]\nRepair: dhal doctor --fix [--dry-run] [--no-backup]\nRelease gate: dhal release-check --target development|rc|stable [--require-build]\n\nUse --json for machine-readable output.`);
 }
 
 void main().catch((error) => {
