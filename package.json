@@ -156,7 +156,9 @@
     "V1_RELEASE_PLAN.md",
     "V1_1_PLAN.md",
     "NESTJS.md",
-    "KOA_HONO.md"
+    "KOA_HONO.md",
+    "ONBOARDING.md",
+    "OPENAPI.md"
   ],
   "scripts": {
     "build": "tsup src/index.ts src/cli.ts src/config-schema.ts src/doctor.ts src/rules/catalog.ts src/presets.ts src/report.ts src/readiness.ts src/compatibility.ts src/stability.ts src/migrations.ts src/v1-contract.ts src/adapters/express.ts src/adapters/fastify.ts src/adapters/node-http.ts src/adapters/nest.ts src/adapters/koa.ts src/adapters/hono.ts src/stores/redis-rate-limit-store.ts src/stores/redis-signal-store.ts src/stores/memory-signal-store.ts src/reputation/abuseipdb.ts src/telemetry/otel.ts src/telemetry/webhook.ts src/autosetup/index.ts --format esm,cjs --dts --clean",
