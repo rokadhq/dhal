@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.0 — Framework adoption and OpenAPI policy generation
+
+### Added
+
+- Added stable NestJS bootstrap support for HTTP applications using Express or Fastify.
+- Added stable Koa middleware and Hono-on-Node.js adapters.
+- Added dedicated `@rokadhq/dhal/nest`, `@rokadhq/dhal/koa`, and `@rokadhq/dhal/hono` package entrypoints.
+- Added `dhal add` for deterministic framework and package-manager detection, monitor-first configuration proposals, and reviewable integration modules.
+- Added conservative `dhal doctor --fix` repairs with dry-run and backup support.
+- Added framework presets for Express, Fastify, NestJS, Koa, Hono on Node.js, and raw `node:http` applications.
+- Added OpenAPI JSON inspection, conservative YAML scanning, security-relevant operation classification, wildcard route conversion, and monitor-only policy generation.
+- Added public onboarding, framework-preset, repair, and OpenAPI policy APIs.
+- Added NestJS, Koa, Hono, onboarding, and OpenAPI operational documentation.
+
+### Changed
+
+- Expanded the compatibility and API-stability inventories for the new framework adapters and CLI commands.
+- Preserved owner-managed route profiles when merging generated OpenAPI policy.
+- Kept generated framework and OpenAPI configurations in `monitor` mode until explicitly reviewed and promoted.
+- Clarified that bot detection is score-based by default and that configured identity headers are optional extraction sources rather than authentication requirements.
+
 ## 1.0.1 — Project links and documentation
 
 ### Changed
