@@ -10,6 +10,7 @@ describe("Dhal release check", () => {
     expect(result.target).toBe("development");
     expect(result.findings.some((finding) => finding.code === "contract.valid" && finding.level === "pass")).toBe(true);
     expect(result.findings.some((finding) => finding.code === "exports.unclassified" && finding.level === "pass")).toBe(true);
+    expect(result.findings.some((finding) => finding.code === "docs.packaged" && finding.level === "pass")).toBe(true);
   });
 
   it("validates the stable v1 version and channel", () => {

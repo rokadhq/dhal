@@ -37,7 +37,11 @@ const REQUIRED_RELEASE_DOCUMENTS = [
   "UPGRADING.md",
   "PUBLISHING.md",
   "RELEASE_INTEGRITY.md",
-  "CHANGELOG.md"
+  "CHANGELOG.md",
+  "NESTJS.md",
+  "KOA_HONO.md",
+  "ONBOARDING.md",
+  "OPENAPI.md"
 ] as const;
 
 const REQUIRED_RELEASE_WORKFLOWS = [
