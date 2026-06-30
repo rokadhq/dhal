@@ -40,7 +40,7 @@ Resolved tags:
 For stable `1.x`, publishing produces the current package version under the `latest` dist-tag. For example:
 
 ```text
-@rokadhq/dhal@1.0.1
+@rokadhq/dhal@1.1.0
 npm dist-tag: latest
 ```
 
@@ -62,6 +62,7 @@ Every stable `1.x` release must:
 
 - preserve the declared v1 public contract;
 - use a matching stable semantic version in `package.json` and `package-lock.json`;
+- include a matching `CHANGELOG.md` section for release-note generation;
 - resolve the release channel to `latest`;
 - pass `npm run release:check:stable` and the complete v1 matrix;
 - publish under the `latest` npm dist-tag;
