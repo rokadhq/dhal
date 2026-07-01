@@ -1,0 +1,8 @@
+{
+  "package": "@rokadhq/dhal",
+  "version": "1.1.0",
+  "distTag": "latest",
+  "verifiedBy": "Publish Dhal to npm",
+  "workflowRun": "28486705413",
+  "sourceCommit": "10bc2b6adb1b65b47a0e5f9d6a2c983561968b15"
+}
